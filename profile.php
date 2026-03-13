@@ -85,7 +85,7 @@ $isPdfMode = isset($_GET['pdf']);
                     </div>
                     <h1 class="profile-name"><?= htmlspecialchars($dozent['vorname'] . ' ' . $dozent['nachname']) ?></h1>
                     <p class="profile-location">
-                        📍 <?= htmlspecialchars($dozent['wohnort']) ?> · <?= htmlspecialchars($dozent['einsatzgebiet']) ?>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg> <?= htmlspecialchars($dozent['wohnort']) ?> · <?= htmlspecialchars($dozent['einsatzgebiet']) ?>
                     </p>
                     <?php if (!empty($dozent['email']) || !empty($dozent['telefon'])): ?>
                         <p class="text-muted" style="margin-top: 8px;">
@@ -143,8 +143,8 @@ $isPdfMode = isset($_GET['pdf']);
 
                 <?php if (!$isPdfMode): ?>
                     <div class="profile-actions">
-                        <button class="btn btn-primary" onclick="generateProfilePDF()">📄 PDF exportieren</button>
-                        <a href="form.php?id=<?= htmlspecialchars($dozent['id']) ?>" class="btn btn-secondary">✏️ Bearbeiten</a>
+                        <button class="btn btn-primary" onclick="generateProfilePDF()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M10 13h4"/><path d="M10 17h4"/></svg> PDF exportieren</button>
+                        <a href="form.php?id=<?= htmlspecialchars($dozent['id']) ?>" class="btn btn-secondary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> Bearbeiten</a>
                         <a href="dashboard.php" class="btn btn-secondary">Zurück zur Übersicht</a>
                     </div>
                 <?php endif; ?>

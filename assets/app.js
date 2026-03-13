@@ -6,6 +6,20 @@
 // === CSRF-Token (wird von PHP in die Seite geschrieben) ===
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
+// === SVG-Icons (inline, kein externer Font nötig) ===
+const Icons = {
+    edit:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>',
+    profile: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    pdf:     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M10 13h4"/><path d="M10 17h4"/></svg>',
+    check:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    cross:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    approve: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    merge:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>',
+    trash:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    remove:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+};
+
 // === Toast-System ===
 const Toast = {
     container: null,
@@ -21,8 +35,8 @@ const Toast = {
 
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : '⚠';
-        toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+        const icon = type === 'success' ? Icons.check : type === 'error' ? Icons.cross : Icons.warning;
+        toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${message}</span>`;
         this.container.appendChild(toast);
 
         setTimeout(() => {
@@ -390,7 +404,15 @@ const Dashboard = {
                 ${hoechster ? '<br>' + hoechster.art + ' ' + hoechster.fach : ''}
             `;
 
-            const marker = L.marker([d.wohnort_lat, d.wohnort_lng])
+            const markerIcon = L.divIcon({
+                className: 'map-marker',
+                html: '<svg width="28" height="40" viewBox="0 0 28 40"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.27 21.73 0 14 0z" fill="var(--color-primary)"/><circle cx="14" cy="14" r="6" fill="#fff"/></svg>',
+                iconSize: [28, 40],
+                iconAnchor: [14, 40],
+                popupAnchor: [0, -36],
+            });
+
+            const marker = L.marker([d.wohnort_lat, d.wohnort_lng], { icon: markerIcon })
                 .bindPopup(popup)
                 .addTo(this.map);
 
@@ -441,9 +463,9 @@ const Dashboard = {
                 <td data-label="Abschlüsse" class="text-truncate">${abschluesse || '–'}</td>
                 <td data-label="Tätigkeit" class="text-truncate">${d.aktuelle_taetigkeit || '–'}</td>
                 <td data-label="Aktionen" class="cell-actions">
-                    <a href="form.php?id=${d.id}" class="btn-icon" title="Bearbeiten">✏️</a>
-                    <a href="profile.php?id=${d.id}" class="btn-icon" title="Profil">👤</a>
-                    <button class="btn-icon" title="PDF" onclick="Dashboard.exportPDF('${d.id}')">📄</button>
+                    <a href="form.php?id=${d.id}" class="btn-icon" title="Bearbeiten">${Icons.edit}</a>
+                    <a href="profile.php?id=${d.id}" class="btn-icon" title="Profil">${Icons.profile}</a>
+                    <button class="btn-icon" title="PDF" onclick="Dashboard.exportPDF('${d.id}')">${Icons.pdf}</button>
                 </td>
             </tr>`;
         }).join('');
@@ -629,7 +651,7 @@ const TrainerForm = {
                     <input type="text" name="projekte[]" maxlength="200"
                            placeholder="z.B. mindscool Grundschulprogramm Hamburg (2023–heute)">
                 </div>
-                <button type="button" class="btn-icon btn-remove" title="Entfernen">✕</button>
+                <button type="button" class="btn-icon btn-remove" title="Entfernen">${Icons.remove}</button>
             `;
             container.appendChild(item);
 
@@ -693,7 +715,7 @@ const TrainerForm = {
                        placeholder="z.B. Universität Hamburg, 2015, Schwerpunkt Klinische Psychologie"
                        value="${data.zusatzinfo || ''}">
             </div>
-            <button type="button" class="btn-icon btn-remove" title="Entfernen">✕</button>
+            <button type="button" class="btn-icon btn-remove" title="Entfernen">${Icons.remove}</button>
         `;
         container.appendChild(item);
 
@@ -1002,10 +1024,10 @@ const TaxAdmin = {
                 <td data-label="Status">${statusBadge}</td>
                 <td data-label="Verwendung">${e.count}</td>
                 <td data-label="Aktionen" class="cell-actions">
-                    <button class="btn-icon" title="Umbenennen" onclick="TaxAdmin.startRename('${kategorie}', '${e.id}', this)">✏️</button>
-                    ${e.status === 'vorschlag' ? `<button class="btn-icon" title="Freigeben" onclick="TaxAdmin.approve('${kategorie}', '${e.id}')">✅</button>` : ''}
-                    <button class="btn-icon" title="Zusammenführen" onclick="TaxAdmin.showMerge('${kategorie}', '${e.id}', '${e.name}')">🔀</button>
-                    <button class="btn-icon" title="${deleteTitle}" ${!canDelete ? 'disabled' : ''} onclick="TaxAdmin.delete('${kategorie}', '${e.id}', '${e.name}')">🗑️</button>
+                    <button class="btn-icon" title="Umbenennen" onclick="TaxAdmin.startRename('${kategorie}', '${e.id}', this)">${Icons.edit}</button>
+                    ${e.status === 'vorschlag' ? `<button class="btn-icon" title="Freigeben" onclick="TaxAdmin.approve('${kategorie}', '${e.id}')">${Icons.approve}</button>` : ''}
+                    <button class="btn-icon" title="Zusammenführen" onclick="TaxAdmin.showMerge('${kategorie}', '${e.id}', '${e.name}')">${Icons.merge}</button>
+                    <button class="btn-icon" title="${deleteTitle}" ${!canDelete ? 'disabled' : ''} onclick="TaxAdmin.delete('${kategorie}', '${e.id}', '${e.name}')">${Icons.trash}</button>
                 </td>
             </tr>`;
         });
@@ -1027,8 +1049,8 @@ const TaxAdmin = {
 
         td.innerHTML = `<div class="inline-edit">
             <input type="text" value="${oldName}" id="rename-input-${id}">
-            <button class="btn-icon" onclick="TaxAdmin.doRename('${kategorie}', '${id}')">✓</button>
-            <button class="btn-icon" onclick="TaxAdmin.loadTab('${kategorie}')">✕</button>
+            <button class="btn-icon" onclick="TaxAdmin.doRename('${kategorie}', '${id}')">${Icons.check}</button>
+            <button class="btn-icon" onclick="TaxAdmin.loadTab('${kategorie}')">${Icons.cross}</button>
         </div>`;
 
         const input = document.getElementById(`rename-input-${id}`);

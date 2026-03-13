@@ -98,7 +98,7 @@ function val($dozent, $field, $default = '') {
                                 <?php if (!empty($dozent['foto_base64'])): ?>
                                     <img src="<?= htmlspecialchars($dozent['foto_base64']) ?>" alt="Vorschau">
                                 <?php else: ?>
-                                    📷
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                                 <?php endif; ?>
                             </div>
                             <div class="foto-upload-controls">
@@ -195,7 +195,7 @@ function val($dozent, $field, $default = '') {
                                            value="<?= htmlspecialchars($p, ENT_QUOTES, 'UTF-8') ?>"
                                            placeholder="z.B. mindscool Grundschulprogramm Hamburg (2023–heute)">
                                 </div>
-                                <button type="button" class="btn-icon btn-remove" title="Entfernen">✕</button>
+                                <button type="button" class="btn-icon btn-remove" title="Entfernen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                             </div>
                         <?php endforeach; ?>
                     </div>
