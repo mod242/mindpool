@@ -1,0 +1,32 @@
+# mindpool – Nginx-Konfiguration
+# Einbinden mit: include /pfad/zu/mindpool/nginx.conf.example;
+# Danach: nginx -t && nginx -s reload
+
+# Datendateien blockieren – KRITISCH!
+location ~* /data/ {
+    deny all;
+    return 403;
+}
+
+# config.php und auth.php direkt blockieren
+location ~* /(config|auth)\.php$ {
+    deny all;
+    return 403;
+}
+
+# PHP-Verarbeitung (anpassen an bestehende PHP-FPM Konfiguration)
+location ~ \.php$ {
+    # Wichtig: fastcgi_pass an die lokale Konfiguration anpassen
+    # fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+}
+
+# Security-Header
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header X-XSS-Protection "1; mode=block" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+# Content-Security-Policy: KEIN Google erlaubt! Nur cdnjs + unpkg + OSM-Tiles
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'; style-src 'self' https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://nominatim.openstreetmap.org; font-src 'self';" always;

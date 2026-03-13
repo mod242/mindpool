@@ -1,0 +1,43 @@
+{
+  "abschlussarten": {
+    "eintraege": [
+      { "id": "ab-001", "name": "Prof.", "status": "aktiv" },
+      { "id": "ab-002", "name": "Dr.", "status": "aktiv" },
+      { "id": "ab-003", "name": "1. Staatsexamen", "status": "aktiv" },
+      { "id": "ab-004", "name": "2. Staatsexamen", "status": "aktiv" },
+      { "id": "ab-005", "name": "Magister", "status": "aktiv" },
+      { "id": "ab-006", "name": "Diplom", "status": "aktiv" },
+      { "id": "ab-007", "name": "Bachelor", "status": "aktiv" },
+      { "id": "ab-008", "name": "Master", "status": "aktiv" },
+      { "id": "ab-009", "name": "MBA", "status": "aktiv" },
+      { "id": "ab-010", "name": "Approbation", "status": "aktiv" }
+    ]
+  },
+  "faecher": {
+    "eintraege": [
+      { "id": "fa-001", "name": "Psychologie", "status": "aktiv" },
+      { "id": "fa-002", "name": "Pädagogik", "status": "aktiv" },
+      { "id": "fa-003", "name": "Erziehungswissenschaften", "status": "aktiv" },
+      { "id": "fa-004", "name": "Soziale Arbeit", "status": "aktiv" },
+      { "id": "fa-005", "name": "Medizin", "status": "aktiv" },
+      { "id": "fa-006", "name": "Soziologie", "status": "aktiv" },
+      { "id": "fa-007", "name": "Philosophie", "status": "aktiv" },
+      { "id": "fa-008", "name": "Sportwissenschaft", "status": "aktiv" },
+      { "id": "fa-009", "name": "Lehramt", "status": "aktiv" },
+      { "id": "fa-010", "name": "Neurowissenschaften", "status": "aktiv" }
+    ]
+  },
+  "einsatzgebiete": {
+    "eintraege": [
+      { "id": "eg-001", "name": "Hamburg", "status": "aktiv" },
+      { "id": "eg-002", "name": "Berlin", "status": "aktiv" },
+      { "id": "eg-003", "name": "München", "status": "aktiv" },
+      { "id": "eg-004", "name": "Köln / Rheinland", "status": "aktiv" },
+      { "id": "eg-005", "name": "Norddeutschland", "status": "aktiv" },
+      { "id": "eg-006", "name": "Süddeutschland", "status": "aktiv" },
+      { "id": "eg-007", "name": "NRW", "status": "aktiv" },
+      { "id": "eg-008", "name": "Bundesweit", "status": "aktiv" },
+      { "id": "eg-009", "name": "Online / Remote", "status": "aktiv" }
+    ]
+  }
+}
