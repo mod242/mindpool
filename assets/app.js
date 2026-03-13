@@ -454,8 +454,7 @@ const Dashboard = {
 
             return `<tr data-id="${d.id}">
                 <td class="foto-cell" data-label="Foto">
-                    <div class="trainer-foto">${typeof fotoHtml === 'string' && !fotoHtml.startsWith('<') ? fotoHtml : ''}</div>
-                    ${fotoHtml.startsWith('<') ? `<div class="trainer-foto">${fotoHtml}</div>` : ''}
+                    <div class="trainer-foto">${fotoHtml}</div>
                 </td>
                 <td data-label="Name"><strong>${d.nachname}, ${d.vorname}</strong></td>
                 <td data-label="Wohnort">${d.wohnort}</td>
