@@ -413,11 +413,11 @@ const Dashboard = {
             });
 
             const marker = L.marker([d.wohnort_lat, d.wohnort_lng], { icon: markerIcon })
-                .bindPopup(popup)
+                .bindTooltip(popup, { direction: 'top', offset: [0, -36] })
                 .addTo(this.map);
 
             marker.on('click', () => {
-                // Zur Person in der Tabelle scrollen oder Profil öffnen
+                // Zur Person in der Tabelle scrollen
                 const row = document.querySelector(`tr[data-id="${d.id}"]`);
                 if (row) {
                     row.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -740,25 +740,32 @@ const TrainerForm = {
 
     initGeocode() {
         const wohnortInput = document.getElementById('wohnort');
+        const plzInput = document.getElementById('plz');
         if (!wohnortInput) return;
 
         let timeout;
-        wohnortInput.addEventListener('blur', () => {
+        const triggerGeocode = () => {
             clearTimeout(timeout);
-            timeout = setTimeout(() => this.geocode(wohnortInput.value), 500);
-        });
+            timeout = setTimeout(() => this.geocode(), 500);
+        };
+        wohnortInput.addEventListener('blur', triggerGeocode);
+        if (plzInput) plzInput.addEventListener('blur', triggerGeocode);
     },
 
-    async geocode(ort) {
-        if (!ort || ort.length < 2) return;
+    async geocode() {
+        const ort = document.getElementById('wohnort')?.value || '';
+        const plz = document.getElementById('plz')?.value || '';
+        if (!ort && !plz) return;
 
         const latInput = document.getElementById('wohnort_lat');
         const lngInput = document.getElementById('wohnort_lng');
         if (!latInput || !lngInput) return;
 
+        const query = [plz, ort, 'Germany'].filter(Boolean).join(' ');
+
         try {
             const resp = await fetch(
-                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(ort + ' Germany')}&format=json&limit=1`,
+                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
                 { headers: { 'Accept-Language': 'de' } }
             );
             const data = await resp.json();
@@ -787,7 +794,14 @@ const TrainerForm = {
                 attribution: '&copy; OpenStreetMap',
                 maxZoom: 18,
             }).addTo(this.previewMap);
-            this.previewMarker = L.marker([lat, lng]).addTo(this.previewMap);
+            const markerIcon = L.divIcon({
+                className: 'map-marker',
+                html: '<svg width="28" height="40" viewBox="0 0 28 40"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.27 21.73 0 14 0z" fill="var(--color-primary)"/><circle cx="14" cy="14" r="6" fill="#fff"/></svg>',
+                iconSize: [28, 40],
+                iconAnchor: [14, 40],
+                popupAnchor: [0, -36],
+            });
+            this.previewMarker = L.marker([lat, lng], { icon: markerIcon }).addTo(this.previewMap);
 
             // Klick auf Karte zum Korrigieren
             this.previewMap.on('click', (e) => {
@@ -899,6 +913,7 @@ const TrainerForm = {
             email: form.querySelector('[name="email"]')?.value || '',
             telefon: form.querySelector('[name="telefon"]')?.value || '',
             foto_base64: form.querySelector('[name="foto_base64"]')?.value || '',
+            plz: form.querySelector('[name="plz"]')?.value || '',
             wohnort: form.querySelector('[name="wohnort"]')?.value || '',
             wohnort_lat: parseFloat(form.querySelector('[name="wohnort_lat"]')?.value) || 0,
             wohnort_lng: parseFloat(form.querySelector('[name="wohnort_lng"]')?.value) || 0,
@@ -1165,13 +1180,13 @@ const TaxAdmin = {
 // === PDF-Export (clientseitig mit jsPDF) ===
 const PDFExport = {
     async generateSingle(dozent) {
-        if (typeof jspdf === 'undefined' && typeof jsPDF === 'undefined') {
+        if (typeof window.jspdf === 'undefined') {
             Toast.show('PDF-Bibliothek wird geladen...', 'warning');
             return;
         }
 
-        const { jsPDF } = window.jspdf || window;
-        const doc = new jsPDF();
+        const JsPDF = window.jspdf.jsPDF;
+        const doc = new JsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         let y = 20;
 
@@ -1273,13 +1288,13 @@ const PDFExport = {
     },
 
     async generateAll(dozenten) {
-        if (typeof jspdf === 'undefined' && typeof jsPDF === 'undefined') {
+        if (typeof window.jspdf === 'undefined') {
             Toast.show('PDF-Bibliothek wird geladen...', 'warning');
             return;
         }
 
-        const { jsPDF } = window.jspdf || window;
-        const doc = new jsPDF();
+        const JsPDF = window.jspdf.jsPDF;
+        const doc = new JsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 

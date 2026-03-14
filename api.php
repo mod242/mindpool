@@ -167,8 +167,9 @@ function validate_dozent(array $data): array {
     if (empty(trim($data['nachname'] ?? ''))) {
         $errors[] = 'Nachname ist erforderlich';
     }
-    if (empty(trim($data['email'] ?? '')) || !valid_email($data['email'])) {
-        $errors[] = 'Gültige E-Mail-Adresse ist erforderlich';
+    $email = trim($data['email'] ?? '');
+    if (!empty($email) && !valid_email($email)) {
+        $errors[] = 'Ungültige E-Mail-Adresse';
     }
     if (empty(trim($data['wohnort'] ?? ''))) {
         $errors[] = 'Wohnort ist erforderlich';
@@ -206,6 +207,7 @@ function prepare_dozent(array $data, ?array $existing = null): array {
         'email'       => sanitize($data['email'] ?? ''),
         'telefon'     => sanitize($data['telefon'] ?? ''),
         'foto_base64' => $data['foto_base64'] ?? ($existing['foto_base64'] ?? ''),
+        'plz'         => sanitize($data['plz'] ?? ''),
         'wohnort'     => sanitize($data['wohnort'] ?? ''),
         'wohnort_lat' => floatval($data['wohnort_lat'] ?? 0),
         'wohnort_lng' => floatval($data['wohnort_lng'] ?? 0),

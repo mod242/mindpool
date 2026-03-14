@@ -79,8 +79,8 @@ function val($dozent, $field, $default = '') {
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="email">E-Mail <span class="required">*</span></label>
-                            <input type="email" id="email" name="email" required
+                            <label for="email">E-Mail</label>
+                            <input type="email" id="email" name="email"
                                    value="<?= val($dozent, 'email') ?>"
                                    placeholder="name@beispiel.de">
                         </div>
@@ -122,11 +122,21 @@ function val($dozent, $field, $default = '') {
                     <h2 class="form-section-title">Ort & Einsatzgebiet</h2>
                 </div>
                 <div class="form-section">
-                    <div class="form-group">
-                        <label for="wohnort">Wohnort <span class="required">*</span></label>
-                        <input type="text" id="wohnort" name="wohnort" required
-                               value="<?= val($dozent, 'wohnort') ?>"
-                               placeholder="z.B. Hamburg">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:0 0 120px">
+                            <label for="plz">PLZ</label>
+                            <input type="text" id="plz" name="plz" maxlength="5" pattern="\d{5}"
+                                   value="<?= val($dozent, 'plz') ?>"
+                                   placeholder="z.B. 20095">
+                        </div>
+                        <div class="form-group">
+                            <label for="wohnort">Wohnort <span class="required">*</span></label>
+                            <input type="text" id="wohnort" name="wohnort" required
+                                   value="<?= val($dozent, 'wohnort') ?>"
+                                   placeholder="z.B. Hamburg">
+                        </div>
+                    </div>
+                    <div class="form-group" style="display:none">
                         <input type="hidden" id="wohnort_lat" name="wohnort_lat"
                                value="<?= val($dozent, 'wohnort_lat', '0') ?>">
                         <input type="hidden" id="wohnort_lng" name="wohnort_lng"

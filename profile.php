@@ -168,7 +168,14 @@ $isPdfMode = isset($_GET['pdf']);
                     attribution: '&copy; OpenStreetMap',
                     maxZoom: 18,
                 }).addTo(map);
-                L.marker([<?= floatval($dozent['wohnort_lat']) ?>, <?= floatval($dozent['wohnort_lng']) ?>]).addTo(map);
+                const markerIcon = L.divIcon({
+                    className: 'map-marker',
+                    html: '<svg width="28" height="40" viewBox="0 0 28 40"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.27 21.73 0 14 0z" fill="var(--color-primary)"/><circle cx="14" cy="14" r="6" fill="#fff"/></svg>',
+                    iconSize: [28, 40],
+                    iconAnchor: [14, 40],
+                    popupAnchor: [0, -36],
+                });
+                L.marker([<?= floatval($dozent['wohnort_lat']) ?>, <?= floatval($dozent['wohnort_lng']) ?>], { icon: markerIcon }).addTo(map);
             }
         });
     </script>
