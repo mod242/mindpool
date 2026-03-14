@@ -20,6 +20,15 @@ const Icons = {
     remove:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
 };
 
+// === Karten-Marker-Icon ===
+const MapMarkerIcon = typeof L !== 'undefined' ? L.icon({
+    iconUrl: 'assets/icon.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -30],
+    tooltipAnchor: [0, -30],
+}) : null;
+
 // === Toast-System ===
 const Toast = {
     container: null,
@@ -404,16 +413,8 @@ const Dashboard = {
                 ${hoechster ? '<br>' + hoechster.art + ' ' + hoechster.fach : ''}
             `;
 
-            const markerIcon = L.divIcon({
-                className: 'map-marker',
-                html: '<svg width="28" height="40" viewBox="0 0 28 40"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.27 21.73 0 14 0z" fill="var(--color-primary)"/><circle cx="14" cy="14" r="6" fill="#fff"/></svg>',
-                iconSize: [28, 40],
-                iconAnchor: [14, 40],
-                popupAnchor: [0, -36],
-            });
-
-            const marker = L.marker([d.wohnort_lat, d.wohnort_lng], { icon: markerIcon })
-                .bindTooltip(popup, { direction: 'top', offset: [0, -36] })
+            const marker = L.marker([d.wohnort_lat, d.wohnort_lng], { icon: MapMarkerIcon })
+                .bindTooltip(popup, { direction: 'top' })
                 .addTo(this.map);
 
             marker.on('click', () => {
@@ -859,14 +860,7 @@ const TrainerForm = {
                 attribution: '&copy; OpenStreetMap',
                 maxZoom: 18,
             }).addTo(this.previewMap);
-            const markerIcon = L.divIcon({
-                className: 'map-marker',
-                html: '<svg width="28" height="40" viewBox="0 0 28 40"><path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.27 21.73 0 14 0z" fill="var(--color-primary)"/><circle cx="14" cy="14" r="6" fill="#fff"/></svg>',
-                iconSize: [28, 40],
-                iconAnchor: [14, 40],
-                popupAnchor: [0, -36],
-            });
-            this.previewMarker = L.marker([lat, lng], { icon: markerIcon }).addTo(this.previewMap);
+            this.previewMarker = L.marker([lat, lng], { icon: MapMarkerIcon }).addTo(this.previewMap);
 
             // Klick auf Karte zum Korrigieren
             this.previewMap.on('click', (e) => {
