@@ -49,7 +49,8 @@ $abschlussarten = $taxonomien['abschlussarten']['eintraege'] ?? [];
                 <h2>Trainer*innen</h2>
                 <div class="table-actions">
                     <a href="form.php" class="btn btn-primary btn-sm">+ Neue*n Trainer*in anlegen</a>
-                    <button class="btn btn-secondary btn-sm" onclick="Dashboard.exportAllPDF()">Alle als PDF</button>
+                    <button class="btn btn-secondary btn-sm" onclick="Dashboard.exportTablePDF()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M10 13h4"/><path d="M10 17h4"/></svg> PDF</button>
+                    <button class="btn btn-secondary btn-sm" onclick="Dashboard.exportCSV()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M12 3v18"/><path d="M18 9l-6-6-6 6"/></svg> CSV</button>
                 </div>
             </div>
 

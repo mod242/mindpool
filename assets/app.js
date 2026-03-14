@@ -559,9 +559,74 @@ const Dashboard = {
         window.open(`profile.php?id=${id}&pdf=1`, '_blank');
     },
 
-    async exportAllPDF() {
-        Toast.show('Sammel-PDF wird erstellt...', 'warning');
-        window.open('profile.php?pdf=all', '_blank');
+    exportTablePDF() {
+        const filtered = this.getFilteredDozenten();
+        if (filtered.length === 0) {
+            Toast.show('Keine Daten zum Exportieren.', 'error');
+            return;
+        }
+        PDFExport.generateTable(filtered);
+    },
+
+    exportCSV() {
+        const filtered = this.getFilteredDozenten();
+        if (filtered.length === 0) {
+            Toast.show('Keine Daten zum Exportieren.', 'error');
+            return;
+        }
+
+        const escape = (val) => {
+            const str = String(val ?? '');
+            if (str.includes('"') || str.includes(';') || str.includes('\n')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        };
+
+        const header = ['Name', 'Wohnort', 'Einsatzgebiet', 'Abschlüsse', 'Tätigkeit'];
+        const rows = filtered.map(d => {
+            const abschluesse = (d.akademische_abschluesse || [])
+                .map(a => `${a.art} ${a.fach}${a.zusatzinfo ? ' (' + a.zusatzinfo + ')' : ''}`)
+                .join(', ');
+            return [
+                `${d.nachname}, ${d.vorname}`,
+                d.wohnort || '',
+                d.einsatzgebiet || '',
+                abschluesse,
+                d.aktuelle_taetigkeit || '',
+            ].map(escape).join(';');
+        });
+
+        const bom = '\uFEFF';
+        const csv = bom + header.join(';') + '\n' + rows.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mindscool_Trainerpool_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        Toast.show('CSV exportiert.', 'success');
+    },
+
+    getFilteredDozenten() {
+        const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
+        const filterEg = document.getElementById('filter-einsatzgebiet')?.value || '';
+        const filterAb = document.getElementById('filter-abschlussart')?.value || '';
+
+        return this.dozenten.filter(d => {
+            if (filterEg && d.einsatzgebiet !== filterEg) return false;
+            if (filterAb && !(d.akademische_abschluesse || []).some(a => a.art === filterAb)) return false;
+            if (search) {
+                const haystack = [
+                    d.vorname, d.nachname, d.wohnort, d.einsatzgebiet,
+                    d.aktuelle_taetigkeit, d.email,
+                    ...(d.akademische_abschluesse || []).map(a => a.art + ' ' + a.fach),
+                ].join(' ').toLowerCase();
+                if (!haystack.includes(search)) return false;
+            }
+            return true;
+        });
     }
 };
 
@@ -1179,6 +1244,102 @@ const TaxAdmin = {
 
 // === PDF-Export (clientseitig mit jsPDF) ===
 const PDFExport = {
+    generateTable(dozenten) {
+        if (typeof window.jspdf === 'undefined') {
+            Toast.show('PDF-Bibliothek wird geladen...', 'warning');
+            return;
+        }
+
+        const JsPDF = window.jspdf.jsPDF;
+        const doc = new JsPDF({ orientation: 'landscape' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
+        const colWidths = [50, 35, 40, 90, 55]; // Name, Wohnort, Einsatzgebiet, Abschlüsse, Tätigkeit
+        const headers = ['Name', 'Wohnort', 'Einsatzgebiet', 'Abschlüsse', 'Tätigkeit'];
+
+        // Titel
+        doc.setFontSize(16);
+        doc.setTextColor(45, 52, 54);
+        doc.text('mindscool Trainer*innen-Pool', margin, 15);
+        doc.setFontSize(9);
+        doc.setTextColor(112, 112, 115);
+        doc.text(`Stand: ${new Date().toLocaleDateString('de-DE')} – ${dozenten.length} Einträge`, margin, 21);
+
+        let y = 28;
+
+        const drawHeader = () => {
+            doc.setFillColor(28, 167, 219);
+            doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
+            doc.setFontSize(9);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont(undefined, 'bold');
+            let x = margin + 2;
+            headers.forEach((h, i) => {
+                doc.text(h, x, y + 5.5);
+                x += colWidths[i];
+            });
+            doc.setFont(undefined, 'normal');
+            y += 10;
+        };
+
+        drawHeader();
+
+        dozenten.forEach((d, idx) => {
+            const abschluesse = (d.akademische_abschluesse || [])
+                .map(a => `${a.art} ${a.fach}`)
+                .join(', ');
+
+            const cells = [
+                `${d.nachname}, ${d.vorname}`,
+                d.wohnort || '–',
+                d.einsatzgebiet || '–',
+                abschluesse || '–',
+                d.aktuelle_taetigkeit || '–',
+            ];
+
+            // Zeilenhöhe berechnen (mehrzeilige Zellen)
+            doc.setFontSize(8);
+            const wrappedCells = cells.map((text, i) => doc.splitTextToSize(text, colWidths[i] - 4));
+            const lineCount = Math.max(...wrappedCells.map(c => c.length));
+            const rowHeight = Math.max(7, lineCount * 4 + 3);
+
+            // Seitenumbruch?
+            if (y + rowHeight > pageHeight - 15) {
+                // Fußzeile
+                doc.setFontSize(7);
+                doc.setTextColor(112, 112, 115);
+                doc.text(`mindscool – Trainer*innen-Pool`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+                doc.addPage();
+                y = 15;
+                drawHeader();
+            }
+
+            // Zebrastreifen
+            if (idx % 2 === 0) {
+                doc.setFillColor(245, 247, 250);
+                doc.rect(margin, y, pageWidth - 2 * margin, rowHeight, 'F');
+            }
+
+            doc.setTextColor(45, 52, 54);
+            let x = margin + 2;
+            wrappedCells.forEach((lines, i) => {
+                doc.text(lines, x, y + 4);
+                x += colWidths[i];
+            });
+
+            y += rowHeight;
+        });
+
+        // Letzte Fußzeile
+        doc.setFontSize(7);
+        doc.setTextColor(112, 112, 115);
+        doc.text(`mindscool – Trainer*innen-Pool`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+
+        doc.save(`mindscool_Trainerpool_Tabelle_${new Date().toISOString().slice(0,10)}.pdf`);
+        Toast.show('Tabellen-PDF exportiert.', 'success');
+    },
+
     async generateSingle(dozent) {
         if (typeof window.jspdf === 'undefined') {
             Toast.show('PDF-Bibliothek wird geladen...', 'warning');
