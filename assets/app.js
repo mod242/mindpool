@@ -560,13 +560,13 @@ const Dashboard = {
         window.open(`profile.php?id=${id}&pdf=1`, '_blank');
     },
 
-    exportTablePDF() {
+    async exportTablePDF() {
         const filtered = this.getFilteredDozenten();
         if (filtered.length === 0) {
             Toast.show('Keine Daten zum Exportieren.', 'error');
             return;
         }
-        PDFExport.generateTable(filtered);
+        await PDFExport.generateTable(filtered);
     },
 
     exportCSV() {
@@ -1238,11 +1238,52 @@ const TaxAdmin = {
 
 // === PDF-Export (clientseitig mit jsPDF) ===
 const PDFExport = {
-    generateTable(dozenten) {
+    _logoDataUrl: null,
+    _logoLoaded: false,
+
+    /**
+     * Logo einmalig als Data-URL laden (DOM-unabhängig)
+     */
+    async _loadLogo() {
+        if (this._logoLoaded) return this._logoDataUrl;
+        try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = 'assets/logo.png';
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            this._logoDataUrl = canvas.toDataURL('image/png');
+        } catch (e) {
+            this._logoDataUrl = null;
+        }
+        this._logoLoaded = true;
+        return this._logoDataUrl;
+    },
+
+    /**
+     * Logo ins PDF einfügen, gibt neue y-Position zurück
+     */
+    _addLogo(doc, y, margin) {
+        if (this._logoDataUrl) {
+            doc.addImage(this._logoDataUrl, 'PNG', margin, y, 50, 15);
+            return y + 22;
+        }
+        return y;
+    },
+
+    async generateTable(dozenten) {
         if (typeof window.jspdf === 'undefined') {
             Toast.show('PDF-Bibliothek wird geladen...', 'warning');
             return;
         }
+
+        await this._loadLogo();
 
         const JsPDF = window.jspdf.jsPDF;
         const doc = new JsPDF({ orientation: 'landscape' });
@@ -1252,15 +1293,19 @@ const PDFExport = {
         const colWidths = [50, 35, 40, 90, 55]; // Name, Wohnort, Einsatzgebiet, Abschlüsse, Tätigkeit
         const headers = ['Name', 'Wohnort', 'Einsatzgebiet', 'Abschlüsse', 'Tätigkeit'];
 
+        // Logo
+        let y = 12;
+        y = this._addLogo(doc, y, margin);
+
         // Titel
         doc.setFontSize(16);
         doc.setTextColor(45, 52, 54);
-        doc.text('mindscool Trainer*innen-Pool', margin, 15);
+        doc.text('mindscool Trainer*innen-Pool', margin, y + 2);
         doc.setFontSize(9);
         doc.setTextColor(112, 112, 115);
-        doc.text(`Stand: ${new Date().toLocaleDateString('de-DE')} – ${dozenten.length} Einträge`, margin, 21);
+        doc.text(`Stand: ${new Date().toLocaleDateString('de-DE')} – ${dozenten.length} Einträge`, margin, y + 8);
 
-        let y = 28;
+        y += 15;
 
         const drawHeader = () => {
             doc.setFillColor(28, 167, 219);
@@ -1340,19 +1385,15 @@ const PDFExport = {
             return;
         }
 
+        await this._loadLogo();
+
         const JsPDF = window.jspdf.jsPDF;
         const doc = new JsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         let y = 20;
 
-        // Logo (wenn vorhanden)
-        try {
-            const logoImg = document.querySelector('.logo-img');
-            if (logoImg) {
-                doc.addImage(logoImg.src, 'PNG', 14, y, 50, 15);
-                y += 22;
-            }
-        } catch (e) { /* Logo überspringen wenn Fehler */ }
+        // Logo
+        y = this._addLogo(doc, y, 14);
 
         // Trennlinie
         doc.setDrawColor(28, 167, 219); // --color-blue
@@ -1448,6 +1489,8 @@ const PDFExport = {
             return;
         }
 
+        await this._loadLogo();
+
         const JsPDF = window.jspdf.jsPDF;
         const doc = new JsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -1455,13 +1498,10 @@ const PDFExport = {
 
         // Deckblatt
         let y = 60;
-        try {
-            const logoImg = document.querySelector('.logo-img');
-            if (logoImg) {
-                doc.addImage(logoImg.src, 'PNG', pageWidth / 2 - 40, 30, 80, 24);
-                y = 70;
-            }
-        } catch (e) {}
+        if (this._logoDataUrl) {
+            doc.addImage(this._logoDataUrl, 'PNG', pageWidth / 2 - 40, 30, 80, 24);
+            y = 70;
+        }
 
         doc.setFontSize(28);
         doc.setTextColor(45, 52, 54);
