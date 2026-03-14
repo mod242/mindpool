@@ -177,12 +177,18 @@ $isPdfMode = isset($_GET['pdf']);
     <?php if (!$pdfAll && $isPdfMode): ?>
     <script>
         // PDF-Modus: Profil automatisch als PDF generieren
-        document.addEventListener('DOMContentLoaded', async () => {
+        document.addEventListener('DOMContentLoaded', () => {
             const dozent = <?= json_encode($dozent, JSON_UNESCAPED_UNICODE) ?>;
-            setTimeout(async () => {
-                await PDFExport.generateSingle(dozent);
-                window.close();
-            }, 500);
+            // Warten bis jsPDF vollständig geladen ist
+            const waitForJsPDF = setInterval(async () => {
+                if (typeof window.jspdf !== 'undefined') {
+                    clearInterval(waitForJsPDF);
+                    await PDFExport.generateSingle(dozent);
+                    // Browser braucht Zeit, um den Download zu starten,
+                    // bevor der Tab geschlossen wird
+                    setTimeout(() => window.close(), 1000);
+                }
+            }, 100);
         });
     </script>
     <?php endif; ?>
