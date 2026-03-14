@@ -155,7 +155,7 @@ $isPdfMode = isset($_GET['pdf']);
     <?php if (!$isPdfMode): ?>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <?php endif; ?>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="assets/app.js"></script>
 
     <?php if (!$isPdfMode && !empty($dozent['wohnort_lat']) && $dozent['wohnort_lat'] != 0): ?>
