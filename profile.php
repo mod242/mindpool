@@ -95,6 +95,12 @@ $isPdfMode = isset($_GET['pdf']);
                             <?php endif; ?>
                         </p>
                     <?php endif; ?>
+                    <?php if (!empty($dozent['webseite'])): ?>
+                        <p style="margin-top: 4px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            <a href="<?= htmlspecialchars($dozent['webseite']) ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($dozent['webseite']) ?></a>
+                        </p>
+                    <?php endif; ?>
                 </div>
 
                 <?php if (!empty($dozent['aktuelle_taetigkeit'])): ?>

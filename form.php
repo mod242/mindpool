@@ -92,6 +92,12 @@ function val($dozent, $field, $default = '') {
                         </div>
                     </div>
                     <div class="form-group">
+                        <label for="webseite">Webseite</label>
+                        <input type="url" id="webseite" name="webseite"
+                               value="<?= val($dozent, 'webseite') ?>"
+                               placeholder="https://www.beispiel.de">
+                    </div>
+                    <div class="form-group">
                         <label>Profilbild</label>
                         <div class="foto-upload">
                             <div class="foto-preview" id="foto-preview">

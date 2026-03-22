@@ -971,6 +971,7 @@ const TrainerForm = {
             nachname: form.querySelector('[name="nachname"]')?.value || '',
             email: form.querySelector('[name="email"]')?.value || '',
             telefon: form.querySelector('[name="telefon"]')?.value || '',
+            webseite: form.querySelector('[name="webseite"]')?.value || '',
             foto_base64: form.querySelector('[name="foto_base64"]')?.value || '',
             plz: form.querySelector('[name="plz"]')?.value || '',
             wohnort: form.querySelector('[name="wohnort"]')?.value || '',
@@ -1413,7 +1414,12 @@ const PDFExport = {
         doc.text(`${dozent.wohnort} | ${dozent.einsatzgebiet}`, 14, y);
         y += 6;
         doc.text(`${dozent.email}${dozent.telefon ? ' | ' + dozent.telefon : ''}`, 14, y);
-        y += 12;
+        y += 6;
+        if (dozent.webseite) {
+            doc.text(dozent.webseite, 14, y);
+            y += 6;
+        }
+        y += 6;
 
         // Aktuelle Tätigkeit
         if (dozent.aktuelle_taetigkeit) {
@@ -1546,7 +1552,12 @@ const PDFExport = {
             doc.text(`${d.wohnort} | ${d.einsatzgebiet}`, 14, y);
             y += 5;
             doc.text(`${d.email}${d.telefon ? ' | ' + d.telefon : ''}`, 14, y);
-            y += 8;
+            y += 5;
+            if (d.webseite) {
+                doc.text(d.webseite, 14, y);
+                y += 5;
+            }
+            y += 3;
 
             if (d.aktuelle_taetigkeit) {
                 doc.setFontSize(10);

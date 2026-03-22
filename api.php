@@ -206,6 +206,7 @@ function prepare_dozent(array $data, ?array $existing = null): array {
         'nachname'    => sanitize($data['nachname'] ?? ''),
         'email'       => sanitize($data['email'] ?? ''),
         'telefon'     => sanitize($data['telefon'] ?? ''),
+        'webseite'    => sanitize($data['webseite'] ?? ''),
         'foto_base64' => $data['foto_base64'] ?? ($existing['foto_base64'] ?? ''),
         'plz'         => sanitize($data['plz'] ?? ''),
         'wohnort'     => sanitize($data['wohnort'] ?? ''),
