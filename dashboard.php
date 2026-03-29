@@ -70,14 +70,21 @@ $abschlussarten = $taxonomien['abschlussarten']['eintraege'] ?? [];
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="filter-abschlussart">Abschluss:</label>
-                    <select id="filter-abschlussart">
+                    <label for="filter-land">Land:</label>
+                    <select id="filter-land">
                         <option value="">Alle</option>
-                        <?php foreach ($abschlussarten as $ab): ?>
-                            <?php if ($ab['status'] === 'aktiv'): ?>
-                                <option value="<?= htmlspecialchars($ab['name']) ?>"><?= htmlspecialchars($ab['name']) ?></option>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
+                        <option value="DE">DE</option>
+                        <option value="AT">AT</option>
+                        <option value="CH">CH</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filter-angebot">Angebot:</label>
+                    <select id="filter-angebot">
+                        <option value="">Alle</option>
+                        <option value="Lehrkräfte-Fortbildungen">Lehrkräfte-Fortbildungen</option>
+                        <option value="Schülerworkshops">Schülerworkshops</option>
+                        <option value="Schulentwicklung">Schulentwicklung</option>
                     </select>
                 </div>
             </div>
@@ -87,10 +94,10 @@ $abschlussarten = $taxonomien['abschlussarten']['eintraege'] ?? [];
                     <tr>
                         <th class="foto-cell">Foto</th>
                         <th data-sort="nachname">Name <span class="sort-indicator">▲</span></th>
+                        <th data-sort="plz">PLZ <span class="sort-indicator">↕</span></th>
                         <th data-sort="wohnort">Wohnort <span class="sort-indicator">↕</span></th>
                         <th>Einsatzgebiet</th>
-                        <th>Abschlüsse</th>
-                        <th>Tätigkeit</th>
+                        <th>Wirkungsfelder</th>
                         <th>Aktionen</th>
                     </tr>
                 </thead>

@@ -103,6 +103,24 @@ $isPdfMode = isset($_GET['pdf']);
                     <?php endif; ?>
                 </div>
 
+                <?php if (!empty($dozent['angebote'])): ?>
+                    <div class="profile-section">
+                        <h3 class="profile-section-title">Angebote</h3>
+                        <div class="badge-list">
+                            <?php foreach ($dozent['angebote'] as $a): ?>
+                                <span class="badge badge-blue"><?= htmlspecialchars($a) ?></span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($dozent['wirkungsfelder'])): ?>
+                    <div class="profile-section">
+                        <h3 class="profile-section-title">Weitere Wirkungsfelder</h3>
+                        <p><?= htmlspecialchars($dozent['wirkungsfelder']) ?></p>
+                    </div>
+                <?php endif; ?>
+
                 <?php if (!empty($dozent['aktuelle_taetigkeit'])): ?>
                     <div class="profile-section">
                         <h3 class="profile-section-title">Aktuelle Tätigkeit</h3>

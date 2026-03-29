@@ -210,16 +210,29 @@ function prepare_dozent(array $data, ?array $existing = null): array {
         'foto_base64' => $data['foto_base64'] ?? ($existing['foto_base64'] ?? ''),
         'plz'         => sanitize($data['plz'] ?? ''),
         'wohnort'     => sanitize($data['wohnort'] ?? ''),
+        'land'        => sanitize($data['land'] ?? ''),
         'wohnort_lat' => floatval($data['wohnort_lat'] ?? 0),
         'wohnort_lng' => floatval($data['wohnort_lng'] ?? 0),
         'einsatzgebiet'       => sanitize($data['einsatzgebiet'] ?? ''),
+        'angebote'            => [],
         'aktuelle_taetigkeit' => sanitize($data['aktuelle_taetigkeit'] ?? ''),
+        'wirkungsfelder'      => sanitize($data['wirkungsfelder'] ?? ''),
         'projekte'            => [],
         'akademische_abschluesse' => [],
         'aktiv'       => $existing['aktiv'] ?? true,
         'erstellt'    => $existing['erstellt'] ?? gmdate('Y-m-d\TH:i:s\Z'),
         'aktualisiert' => gmdate('Y-m-d\TH:i:s\Z'),
     ];
+
+    // Angebote sanitizen (nur erlaubte Werte)
+    $erlaubte_angebote = ['Lehrkräfte-Fortbildungen', 'Schülerworkshops', 'Schulentwicklung'];
+    if (!empty($data['angebote']) && is_array($data['angebote'])) {
+        foreach ($data['angebote'] as $angebot) {
+            if (in_array($angebot, $erlaubte_angebote, true)) {
+                $dozent['angebote'][] = $angebot;
+            }
+        }
+    }
 
     // Projekte sanitizen
     if (!empty($data['projekte']) && is_array($data['projekte'])) {

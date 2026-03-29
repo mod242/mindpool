@@ -405,12 +405,12 @@ const Dashboard = {
         this.dozenten.forEach(d => {
             if (!d.wohnort_lat || !d.wohnort_lng) return;
 
-            const hoechster = d.akademische_abschluesse?.[0];
+            const angebote = (d.angebote || []).join(', ');
             const popup = `
                 <strong>${d.vorname} ${d.nachname}</strong><br>
                 ${d.wohnort}<br>
                 <em>${d.einsatzgebiet}</em>
-                ${hoechster ? '<br>' + hoechster.art + ' ' + hoechster.fach : ''}
+                ${angebote ? '<br>' + angebote : ''}
             `;
 
             const marker = L.marker([d.wohnort_lat, d.wohnort_lng], { icon: MapMarkerIcon })
@@ -445,9 +445,12 @@ const Dashboard = {
         }
 
         tbody.innerHTML = data.map(d => {
-            const abschluesse = (d.akademische_abschluesse || [])
-                .map(a => `${a.art} ${a.fach}`)
-                .join(', ');
+            const angeboteTags = (d.angebote || [])
+                .map(a => `<span class="badge badge-sm">${a}</span>`)
+                .join(' ');
+            const wirkung = d.wirkungsfelder
+                ? `<div class="text-truncate text-muted-sm">${d.wirkungsfelder}</div>`
+                : '';
 
             const fotoHtml = d.foto_base64 && d.foto_base64.startsWith('data:')
                 ? `<img src="${d.foto_base64}" alt="">`
@@ -458,10 +461,10 @@ const Dashboard = {
                     <div class="trainer-foto">${fotoHtml}</div>
                 </td>
                 <td data-label="Name"><strong>${d.nachname}, ${d.vorname}</strong></td>
-                <td data-label="Wohnort">${d.wohnort}</td>
+                <td data-label="PLZ">${d.plz || '–'}</td>
+                <td data-label="Wohnort">${d.wohnort}${d.land ? ' <span class="text-muted-sm">' + d.land + '</span>' : ''}</td>
                 <td data-label="Einsatzgebiet">${d.einsatzgebiet}</td>
-                <td data-label="Abschlüsse" class="text-truncate">${abschluesse || '–'}</td>
-                <td data-label="Tätigkeit" class="text-truncate">${d.aktuelle_taetigkeit || '–'}</td>
+                <td data-label="Wirkungsfelder">${angeboteTags || '–'}${wirkung}</td>
                 <td data-label="Aktionen" class="cell-actions">
                     <a href="form.php?id=${d.id}" class="btn-icon" title="Bearbeiten">${Icons.edit}</a>
                     <a href="profile.php?id=${d.id}" class="btn-icon" title="Profil">${Icons.profile}</a>
@@ -479,9 +482,9 @@ const Dashboard = {
         if (search) {
             data = data.filter(d => {
                 const text = [
-                    d.vorname, d.nachname, d.wohnort, d.einsatzgebiet,
-                    d.aktuelle_taetigkeit,
-                    ...(d.akademische_abschluesse || []).map(a => a.art + ' ' + a.fach),
+                    d.vorname, d.nachname, d.plz, d.wohnort, d.land,
+                    d.einsatzgebiet, d.aktuelle_taetigkeit, d.wirkungsfelder,
+                    ...(d.angebote || []),
                 ].join(' ').toLowerCase();
                 return text.includes(search);
             });
@@ -493,11 +496,17 @@ const Dashboard = {
             data = data.filter(d => d.einsatzgebiet === filterEinsatz);
         }
 
-        // Filter: Abschlussart
-        const filterAbschluss = document.getElementById('filter-abschlussart')?.value || '';
-        if (filterAbschluss) {
+        // Filter: Land
+        const filterLand = document.getElementById('filter-land')?.value || '';
+        if (filterLand) {
+            data = data.filter(d => d.land === filterLand);
+        }
+
+        // Filter: Angebot
+        const filterAngebot = document.getElementById('filter-angebot')?.value || '';
+        if (filterAngebot) {
             data = data.filter(d =>
-                (d.akademische_abschluesse || []).some(a => a.art === filterAbschluss)
+                (d.angebote || []).includes(filterAngebot)
             );
         }
 
@@ -544,7 +553,10 @@ const Dashboard = {
         document.getElementById('filter-einsatzgebiet')?.addEventListener('change', () => {
             this.renderTable();
         });
-        document.getElementById('filter-abschlussart')?.addEventListener('change', () => {
+        document.getElementById('filter-land')?.addEventListener('change', () => {
+            this.renderTable();
+        });
+        document.getElementById('filter-angebot')?.addEventListener('change', () => {
             this.renderTable();
         });
 
@@ -584,16 +596,16 @@ const Dashboard = {
             return str;
         };
 
-        const header = ['Name', 'Wohnort', 'Einsatzgebiet', 'Abschlüsse', 'Tätigkeit'];
+        const header = ['Name', 'PLZ', 'Wohnort', 'Land', 'Einsatzgebiet', 'Angebote', 'Wirkungsfelder', 'Tätigkeit'];
         const rows = filtered.map(d => {
-            const abschluesse = (d.akademische_abschluesse || [])
-                .map(a => `${a.art} ${a.fach}${a.zusatzinfo ? ' (' + a.zusatzinfo + ')' : ''}`)
-                .join(', ');
             return [
                 `${d.nachname}, ${d.vorname}`,
+                d.plz || '',
                 d.wohnort || '',
+                d.land || '',
                 d.einsatzgebiet || '',
-                abschluesse,
+                (d.angebote || []).join(', '),
+                d.wirkungsfelder || '',
                 d.aktuelle_taetigkeit || '',
             ].map(escape).join(';');
         });
@@ -613,16 +625,18 @@ const Dashboard = {
     getFilteredDozenten() {
         const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
         const filterEg = document.getElementById('filter-einsatzgebiet')?.value || '';
-        const filterAb = document.getElementById('filter-abschlussart')?.value || '';
+        const filterLand = document.getElementById('filter-land')?.value || '';
+        const filterAngebot = document.getElementById('filter-angebot')?.value || '';
 
         return this.dozenten.filter(d => {
             if (filterEg && d.einsatzgebiet !== filterEg) return false;
-            if (filterAb && !(d.akademische_abschluesse || []).some(a => a.art === filterAb)) return false;
+            if (filterLand && d.land !== filterLand) return false;
+            if (filterAngebot && !(d.angebote || []).includes(filterAngebot)) return false;
             if (search) {
                 const haystack = [
-                    d.vorname, d.nachname, d.wohnort, d.einsatzgebiet,
-                    d.aktuelle_taetigkeit, d.email,
-                    ...(d.akademische_abschluesse || []).map(a => a.art + ' ' + a.fach),
+                    d.vorname, d.nachname, d.plz, d.wohnort, d.land,
+                    d.einsatzgebiet, d.aktuelle_taetigkeit, d.wirkungsfelder,
+                    d.email, ...(d.angebote || []),
                 ].join(' ').toLowerCase();
                 if (!haystack.includes(search)) return false;
             }
@@ -975,13 +989,21 @@ const TrainerForm = {
             foto_base64: form.querySelector('[name="foto_base64"]')?.value || '',
             plz: form.querySelector('[name="plz"]')?.value || '',
             wohnort: form.querySelector('[name="wohnort"]')?.value || '',
+            land: form.querySelector('[name="land"]')?.value || '',
             wohnort_lat: parseFloat(form.querySelector('[name="wohnort_lat"]')?.value) || 0,
             wohnort_lng: parseFloat(form.querySelector('[name="wohnort_lng"]')?.value) || 0,
             einsatzgebiet: this.comboboxes['einsatzgebiet']?.getValue() || '',
+            angebote: [],
             aktuelle_taetigkeit: form.querySelector('[name="aktuelle_taetigkeit"]')?.value || '',
+            wirkungsfelder: form.querySelector('[name="wirkungsfelder"]')?.value || '',
             projekte: [],
             akademische_abschluesse: [],
         };
+
+        // Angebote sammeln (Checkboxen)
+        form.querySelectorAll('[name="angebote[]"]:checked').forEach(cb => {
+            data.angebote.push(cb.value);
+        });
 
         // Projekte sammeln
         form.querySelectorAll('[name="projekte[]"]').forEach(input => {
@@ -1291,8 +1313,8 @@ const PDFExport = {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 14;
-        const colWidths = [50, 35, 40, 90, 55]; // Name, Wohnort, Einsatzgebiet, Abschlüsse, Tätigkeit
-        const headers = ['Name', 'Wohnort', 'Einsatzgebiet', 'Abschlüsse', 'Tätigkeit'];
+        const colWidths = [50, 20, 35, 40, 55, 70]; // Name, PLZ, Wohnort, Einsatzgebiet, Angebote, Wirkungsfelder
+        const headers = ['Name', 'PLZ', 'Wohnort', 'Einsatzgebiet', 'Angebote', 'Wirkungsfelder'];
 
         // Logo
         let y = 12;
@@ -1326,16 +1348,16 @@ const PDFExport = {
         drawHeader();
 
         dozenten.forEach((d, idx) => {
-            const abschluesse = (d.akademische_abschluesse || [])
-                .map(a => `${a.art} ${a.fach}`)
-                .join(', ');
+            const angebote = (d.angebote || []).join(', ');
+            const wirkung = [angebote, d.wirkungsfelder].filter(Boolean).join('; ');
 
             const cells = [
                 `${d.nachname}, ${d.vorname}`,
-                d.wohnort || '–',
+                d.plz || '–',
+                `${d.wohnort || '–'}${d.land ? ' (' + d.land + ')' : ''}`,
                 d.einsatzgebiet || '–',
-                abschluesse || '–',
-                d.aktuelle_taetigkeit || '–',
+                angebote || '–',
+                d.wirkungsfelder || '–',
             ];
 
             // Zeilenhöhe berechnen (mehrzeilige Zellen)
@@ -1420,6 +1442,31 @@ const PDFExport = {
             y += 6;
         }
         y += 6;
+
+        // Angebote
+        if (dozent.angebote?.length > 0) {
+            doc.setFontSize(12);
+            doc.setTextColor(28, 167, 219); // --color-blue
+            doc.text('Angebote', 14, y);
+            y += 6;
+            doc.setFontSize(10);
+            doc.setTextColor(45, 52, 54);
+            doc.text(dozent.angebote.join(', '), 14, y);
+            y += 8;
+        }
+
+        // Wirkungsfelder
+        if (dozent.wirkungsfelder) {
+            doc.setFontSize(12);
+            doc.setTextColor(28, 167, 219);
+            doc.text('Weitere Wirkungsfelder', 14, y);
+            y += 6;
+            doc.setFontSize(10);
+            doc.setTextColor(45, 52, 54);
+            const lines = doc.splitTextToSize(dozent.wirkungsfelder, pageWidth - 28);
+            doc.text(lines, 14, y);
+            y += lines.length * 5 + 8;
+        }
 
         // Aktuelle Tätigkeit
         if (dozent.aktuelle_taetigkeit) {
@@ -1558,6 +1605,23 @@ const PDFExport = {
                 y += 5;
             }
             y += 3;
+
+            if (d.angebote?.length > 0) {
+                doc.setFontSize(10);
+                doc.setTextColor(28, 167, 219);
+                doc.text('Angebote: ', 14, y);
+                doc.setTextColor(45, 52, 54);
+                doc.text(d.angebote.join(', '), 14 + doc.getTextWidth('Angebote: '), y);
+                y += 5;
+            }
+
+            if (d.wirkungsfelder) {
+                doc.setFontSize(10);
+                doc.setTextColor(45, 52, 54);
+                const lines = doc.splitTextToSize(d.wirkungsfelder, pageWidth - 28);
+                doc.text(lines, 14, y);
+                y += lines.length * 5 + 3;
+            }
 
             if (d.aktuelle_taetigkeit) {
                 doc.setFontSize(10);

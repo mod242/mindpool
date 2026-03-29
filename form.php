@@ -131,7 +131,7 @@ function val($dozent, $field, $default = '') {
                     <div class="form-row">
                         <div class="form-group" style="flex:0 0 120px">
                             <label for="plz">PLZ</label>
-                            <input type="text" id="plz" name="plz" maxlength="5" pattern="\d{5}"
+                            <input type="text" id="plz" name="plz" maxlength="5"
                                    value="<?= val($dozent, 'plz') ?>"
                                    placeholder="z.B. 20095">
                         </div>
@@ -140,6 +140,15 @@ function val($dozent, $field, $default = '') {
                             <input type="text" id="wohnort" name="wohnort" required
                                    value="<?= val($dozent, 'wohnort') ?>"
                                    placeholder="z.B. Hamburg">
+                        </div>
+                        <div class="form-group" style="flex:0 0 100px">
+                            <label for="land">Land</label>
+                            <select id="land" name="land">
+                                <option value="">–</option>
+                                <option value="DE" <?= ($dozent['land'] ?? '') === 'DE' ? 'selected' : '' ?>>DE</option>
+                                <option value="AT" <?= ($dozent['land'] ?? '') === 'AT' ? 'selected' : '' ?>>AT</option>
+                                <option value="CH" <?= ($dozent['land'] ?? '') === 'CH' ? 'selected' : '' ?>>CH</option>
+                            </select>
                         </div>
                     </div>
                     <div class="form-group" style="display:none">
@@ -176,13 +185,41 @@ function val($dozent, $field, $default = '') {
                 </div>
             </div>
 
-            <!-- Abschnitt 3: Berufliches -->
+            <!-- Abschnitt 3: Angebote & Wirkungsfelder -->
             <div class="form-card">
                 <div class="form-section-header">
                     <div class="form-section-accent" style="background: var(--color-purple)"></div>
-                    <h2 class="form-section-title">Berufliches</h2>
+                    <h2 class="form-section-title">Angebote & Wirkungsfelder</h2>
                 </div>
                 <div class="form-section">
+                    <?php $angebote = $dozent['angebote'] ?? []; ?>
+                    <div class="form-group">
+                        <label>Angebote</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="angebote[]" value="Lehrkräfte-Fortbildungen"
+                                       <?= in_array('Lehrkräfte-Fortbildungen', $angebote) ? 'checked' : '' ?>>
+                                Lehrkräfte-Fortbildungen
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="angebote[]" value="Schülerworkshops"
+                                       <?= in_array('Schülerworkshops', $angebote) ? 'checked' : '' ?>>
+                                Schülerworkshops
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="angebote[]" value="Schulentwicklung"
+                                       <?= in_array('Schulentwicklung', $angebote) ? 'checked' : '' ?>>
+                                Schulentwicklung
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="wirkungsfelder">Weitere Wirkungsfelder</label>
+                        <textarea id="wirkungsfelder" name="wirkungsfelder"
+                                  maxlength="500" data-maxlength="500"
+                                  placeholder="z.B. Mindful Self-Compassion-Kurse für Teens, Gewaltfreie Kommunikation für Schulklassen"
+                        ><?= val($dozent, 'wirkungsfelder') ?></textarea>
+                    </div>
                     <div class="form-group">
                         <label for="aktuelle_taetigkeit">Aktuelle berufliche Tätigkeit</label>
                         <textarea id="aktuelle_taetigkeit" name="aktuelle_taetigkeit"

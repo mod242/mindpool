@@ -267,6 +267,27 @@ textarea {
   min-height: 80px;
 }
 
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  font-size: 15px;
+  cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: auto;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
 .form-hint {
   font-size: 13px;
   color: var(--color-text-light);
@@ -659,6 +680,26 @@ textarea {
 .badge-grey {
   background: #eceff1;
   color: var(--color-grey);
+}
+
+.badge-sm {
+  padding: 2px 7px;
+  font-size: 11px;
+  border-radius: 10px;
+  background: var(--color-primary-light);
+  color: #0d7ea5;
+}
+
+.badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.text-muted-sm {
+  font-size: 12px;
+  color: var(--color-grey);
+  margin-top: 2px;
 }
 
 /* === Formular-Abschnitte === */
