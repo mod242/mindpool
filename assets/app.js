@@ -109,11 +109,20 @@ class Combobox {
         this.kategorie = options.kategorie;
         this.name = options.name;
         this.required = options.required || false;
+        this.multi = options.multi || false;
         this.eintraege = [];
         this.filtered = [];
         this.highlightIndex = -1;
         this.isOpen = false;
-        this.selectedValue = options.value || '';
+        // Single: string, Multi: array
+        if (this.multi) {
+            let parsed = [];
+            try { parsed = JSON.parse(options.value || '[]'); } catch (e) {}
+            this.selectedValues = Array.isArray(parsed) ? parsed : (options.value ? [options.value] : []);
+            this.selectedValue = '';
+        } else {
+            this.selectedValue = options.value || '';
+        }
 
         this.build();
         this.loadEntries();
@@ -122,12 +131,20 @@ class Combobox {
     build() {
         this.container.classList.add('combobox-wrapper');
 
-        // Hidden Input für den eigentlichen Wert
-        this.hiddenInput = document.createElement('input');
-        this.hiddenInput.type = 'hidden';
-        this.hiddenInput.name = this.name;
-        this.hiddenInput.value = this.selectedValue;
-        this.container.appendChild(this.hiddenInput);
+        if (this.multi) {
+            // Tags-Container für Multi-Select
+            this.tagsContainer = document.createElement('div');
+            this.tagsContainer.className = 'combobox-tags';
+            this.container.appendChild(this.tagsContainer);
+            this.renderTags();
+        } else {
+            // Hidden Input für den eigentlichen Wert (Single)
+            this.hiddenInput = document.createElement('input');
+            this.hiddenInput.type = 'hidden';
+            this.hiddenInput.name = this.name;
+            this.hiddenInput.value = this.selectedValue;
+            this.container.appendChild(this.hiddenInput);
+        }
 
         // Sichtbares Input
         this.input = document.createElement('input');
@@ -139,7 +156,7 @@ class Combobox {
         this.input.setAttribute('aria-expanded', 'false');
         this.input.setAttribute('aria-autocomplete', 'list');
         if (this.required) this.input.setAttribute('aria-required', 'true');
-        this.input.value = this.selectedValue;
+        if (!this.multi) this.input.value = this.selectedValue;
         this.container.appendChild(this.input);
 
         // Dropdown
@@ -155,6 +172,40 @@ class Combobox {
         document.addEventListener('click', (e) => {
             if (!this.container.contains(e.target)) this.close();
         });
+    }
+
+    renderTags() {
+        if (!this.tagsContainer) return;
+        this.tagsContainer.innerHTML = '';
+
+        // Hidden inputs für Formular-Submit
+        this.container.querySelectorAll('input[type="hidden"]').forEach(h => h.remove());
+        this.selectedValues.forEach(val => {
+            // Tag
+            const tag = document.createElement('span');
+            tag.className = 'combobox-tag';
+            tag.innerHTML = `${val} <button type="button" class="combobox-tag-remove" aria-label="Entfernen">&times;</button>`;
+            tag.querySelector('button').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeValue(val);
+            });
+            this.tagsContainer.appendChild(tag);
+
+            // Hidden input
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = this.name + '[]';
+            hidden.value = val;
+            this.container.appendChild(hidden);
+        });
+    }
+
+    removeValue(val) {
+        this.selectedValues = this.selectedValues.filter(v => v !== val);
+        this.renderTags();
+        this.container.dispatchEvent(new CustomEvent('combobox-select', {
+            detail: { values: this.selectedValues }
+        }));
     }
 
     async loadEntries() {
@@ -179,17 +230,20 @@ class Combobox {
         this.input.setAttribute('aria-expanded', 'false');
         this.highlightIndex = -1;
 
-        // Wenn der eingetippte Wert nicht dem gewählten Wert entspricht
-        if (this.input.value !== this.selectedValue) {
-            // Prüfen ob der getippte Wert einem Eintrag entspricht
-            const match = this.eintraege.find(
-                e => e.name.toLowerCase() === this.input.value.toLowerCase()
-            );
-            if (match) {
-                this.select(match.name);
-            } else {
-                // Zurücksetzen wenn kein gültiger Wert
-                this.input.value = this.selectedValue;
+        if (this.multi) {
+            // Bei Multi: Input leeren nach Close
+            this.input.value = '';
+        } else {
+            // Wenn der eingetippte Wert nicht dem gewählten Wert entspricht
+            if (this.input.value !== this.selectedValue) {
+                const match = this.eintraege.find(
+                    e => e.name.toLowerCase() === this.input.value.toLowerCase()
+                );
+                if (match) {
+                    this.select(match.name);
+                } else {
+                    this.input.value = this.selectedValue;
+                }
             }
         }
     }
@@ -203,8 +257,10 @@ class Combobox {
     }
 
     onInput() {
-        this.selectedValue = '';
-        this.hiddenInput.value = '';
+        if (!this.multi) {
+            this.selectedValue = '';
+            this.hiddenInput.value = '';
+        }
         this.highlightIndex = -1;
         this.filter(this.input.value);
         if (!this.isOpen) this.open();
@@ -280,15 +336,30 @@ class Combobox {
                 option.classList.add('vorschlag');
             }
 
+            // Multi: bereits gewählte dimmen
+            const isSelected = this.multi && this.selectedValues.includes(eintrag.name);
+            if (isSelected) option.classList.add('selected');
+
             let html = eintrag.name;
             if (eintrag.status === 'vorschlag') {
                 html += ' <span class="badge-neu">(neu)</span>';
             }
+            if (isSelected) html += ' ✓';
             option.innerHTML = html;
 
             option.addEventListener('click', () => {
-                this.select(eintrag.name);
-                this.close();
+                if (this.multi) {
+                    if (isSelected) {
+                        this.removeValue(eintrag.name);
+                    } else {
+                        this.addValue(eintrag.name);
+                    }
+                    this.input.value = '';
+                    this.filter('');
+                } else {
+                    this.select(eintrag.name);
+                    this.close();
+                }
             });
             this.dropdown.appendChild(option);
         });
@@ -304,16 +375,30 @@ class Combobox {
     }
 
     select(name) {
+        if (this.multi) {
+            this.addValue(name);
+            return;
+        }
         this.selectedValue = name;
         this.input.value = name;
         this.hiddenInput.value = name;
         this.input.classList.remove('invalid');
         this.close();
 
-        // Custom Event
         this.container.dispatchEvent(new CustomEvent('combobox-select', {
             detail: { value: name }
         }));
+    }
+
+    addValue(name) {
+        if (!this.selectedValues.includes(name)) {
+            this.selectedValues.push(name);
+            this.renderTags();
+            this.input.classList.remove('invalid');
+            this.container.dispatchEvent(new CustomEvent('combobox-select', {
+                detail: { values: this.selectedValues }
+            }));
+        }
     }
 
     async suggest(name) {
@@ -340,19 +425,31 @@ class Combobox {
     }
 
     getValue() {
-        return this.selectedValue;
+        return this.multi ? this.selectedValues : this.selectedValue;
     }
 
     setValue(val) {
-        this.selectedValue = val;
-        this.input.value = val;
-        this.hiddenInput.value = val;
+        if (this.multi) {
+            this.selectedValues = Array.isArray(val) ? val : [val];
+            this.renderTags();
+        } else {
+            this.selectedValue = val;
+            this.input.value = val;
+            this.hiddenInput.value = val;
+        }
     }
 
     validate() {
-        if (this.required && !this.selectedValue) {
-            this.input.classList.add('invalid');
-            return false;
+        if (this.multi) {
+            if (this.required && this.selectedValues.length === 0) {
+                this.input.classList.add('invalid');
+                return false;
+            }
+        } else {
+            if (this.required && !this.selectedValue) {
+                this.input.classList.add('invalid');
+                return false;
+            }
         }
         this.input.classList.remove('invalid');
         return true;
@@ -405,11 +502,12 @@ const Dashboard = {
         this.dozenten.forEach(d => {
             if (!d.wohnort_lat || !d.wohnort_lng) return;
 
+            const einsatzgebiete = (d.einsatzgebiete || []).join(', ');
             const angebote = (d.angebote || []).join(', ');
             const popup = `
                 <strong>${d.vorname} ${d.nachname}</strong><br>
                 ${d.wohnort}<br>
-                <em>${d.einsatzgebiet}</em>
+                <em>${einsatzgebiete}</em>
                 ${angebote ? '<br>' + angebote : ''}
             `;
 
@@ -463,7 +561,7 @@ const Dashboard = {
                 <td data-label="Name"><strong>${d.nachname}, ${d.vorname}</strong></td>
                 <td data-label="PLZ">${d.plz || '–'}</td>
                 <td data-label="Wohnort">${d.wohnort}${d.land ? ' <span class="text-muted-sm">' + d.land + '</span>' : ''}</td>
-                <td data-label="Einsatzgebiet">${d.einsatzgebiet}</td>
+                <td data-label="Einsatzgebiet">${(d.einsatzgebiete || []).join(', ') || '–'}</td>
                 <td data-label="Wirkungsfelder">${angeboteTags || '–'}${wirkung}</td>
                 <td data-label="Aktionen" class="cell-actions">
                     <a href="form.php?id=${d.id}" class="btn-icon" title="Bearbeiten">${Icons.edit}</a>
@@ -483,7 +581,8 @@ const Dashboard = {
             data = data.filter(d => {
                 const text = [
                     d.vorname, d.nachname, d.plz, d.wohnort, d.land,
-                    d.einsatzgebiet, d.aktuelle_taetigkeit, d.wirkungsfelder,
+                    ...(d.einsatzgebiete || []),
+                    d.aktuelle_taetigkeit, d.wirkungsfelder,
                     ...(d.angebote || []),
                 ].join(' ').toLowerCase();
                 return text.includes(search);
@@ -493,7 +592,7 @@ const Dashboard = {
         // Filter: Einsatzgebiet
         const filterEinsatz = document.getElementById('filter-einsatzgebiet')?.value || '';
         if (filterEinsatz) {
-            data = data.filter(d => d.einsatzgebiet === filterEinsatz);
+            data = data.filter(d => (d.einsatzgebiete || []).includes(filterEinsatz));
         }
 
         // Filter: Land
@@ -603,7 +702,7 @@ const Dashboard = {
                 d.plz || '',
                 d.wohnort || '',
                 d.land || '',
-                d.einsatzgebiet || '',
+                (d.einsatzgebiete || []).join(', '),
                 (d.angebote || []).join(', '),
                 d.wirkungsfelder || '',
                 d.aktuelle_taetigkeit || '',
@@ -629,13 +728,14 @@ const Dashboard = {
         const filterAngebot = document.getElementById('filter-angebot')?.value || '';
 
         return this.dozenten.filter(d => {
-            if (filterEg && d.einsatzgebiet !== filterEg) return false;
+            if (filterEg && !(d.einsatzgebiete || []).includes(filterEg)) return false;
             if (filterLand && d.land !== filterLand) return false;
             if (filterAngebot && !(d.angebote || []).includes(filterAngebot)) return false;
             if (search) {
                 const haystack = [
                     d.vorname, d.nachname, d.plz, d.wohnort, d.land,
-                    d.einsatzgebiet, d.aktuelle_taetigkeit, d.wirkungsfelder,
+                    ...(d.einsatzgebiete || []),
+                    d.aktuelle_taetigkeit, d.wirkungsfelder,
                     d.email, ...(d.angebote || []),
                 ].join(' ').toLowerCase();
                 if (!haystack.includes(search)) return false;
@@ -665,6 +765,7 @@ const TrainerForm = {
                 kategorie: el.dataset.combobox,
                 name: el.dataset.name,
                 required: el.dataset.required === 'true',
+                multi: el.dataset.multi === 'true',
                 value: el.dataset.value || '',
             });
             this.comboboxes[el.dataset.name] = cb;
@@ -992,7 +1093,7 @@ const TrainerForm = {
             land: form.querySelector('[name="land"]')?.value || '',
             wohnort_lat: parseFloat(form.querySelector('[name="wohnort_lat"]')?.value) || 0,
             wohnort_lng: parseFloat(form.querySelector('[name="wohnort_lng"]')?.value) || 0,
-            einsatzgebiet: this.comboboxes['einsatzgebiet']?.getValue() || '',
+            einsatzgebiete: this.comboboxes['einsatzgebiete']?.getValue() || [],
             angebote: [],
             aktuelle_taetigkeit: form.querySelector('[name="aktuelle_taetigkeit"]')?.value || '',
             wirkungsfelder: form.querySelector('[name="wirkungsfelder"]')?.value || '',
@@ -1355,7 +1456,7 @@ const PDFExport = {
                 `${d.nachname}, ${d.vorname}`,
                 d.plz || '–',
                 `${d.wohnort || '–'}${d.land ? ' (' + d.land + ')' : ''}`,
-                d.einsatzgebiet || '–',
+                (d.einsatzgebiete || []).join(', ') || '–',
                 angebote || '–',
                 d.wirkungsfelder || '–',
             ];
@@ -1433,7 +1534,7 @@ const PDFExport = {
         // Kontakt
         doc.setFontSize(11);
         doc.setTextColor(112, 112, 115); // --color-grey
-        doc.text(`${dozent.wohnort} | ${dozent.einsatzgebiet}`, 14, y);
+        doc.text(`${dozent.wohnort} | ${(dozent.einsatzgebiete || []).join(', ')}`, 14, y);
         y += 6;
         doc.text(`${dozent.email}${dozent.telefon ? ' | ' + dozent.telefon : ''}`, 14, y);
         y += 6;
@@ -1596,7 +1697,7 @@ const PDFExport = {
 
             doc.setFontSize(10);
             doc.setTextColor(112, 112, 115);
-            doc.text(`${d.wohnort} | ${d.einsatzgebiet}`, 14, y);
+            doc.text(`${d.wohnort} | ${(d.einsatzgebiete || []).join(', ')}`, 14, y);
             y += 5;
             doc.text(`${d.email}${d.telefon ? ' | ' + d.telefon : ''}`, 14, y);
             y += 5;

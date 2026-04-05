@@ -85,7 +85,7 @@ $isPdfMode = isset($_GET['pdf']);
                     </div>
                     <h1 class="profile-name"><?= htmlspecialchars($dozent['vorname'] . ' ' . $dozent['nachname']) ?></h1>
                     <p class="profile-location">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg> <?= htmlspecialchars($dozent['wohnort']) ?> · <?= htmlspecialchars($dozent['einsatzgebiet']) ?>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg> <?= htmlspecialchars($dozent['wohnort']) ?> · <?= htmlspecialchars(implode(', ', $dozent['einsatzgebiete'] ?? ($dozent['einsatzgebiet'] ?? '' ? [$dozent['einsatzgebiet']] : []))) ?>
                     </p>
                     <?php if (!empty($dozent['email']) || !empty($dozent['telefon'])): ?>
                         <p class="text-muted" style="margin-top: 8px;">

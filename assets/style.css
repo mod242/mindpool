@@ -864,6 +864,43 @@ textarea {
   background-color: #fff3e0;
 }
 
+.combobox-option.selected {
+  opacity: 0.5;
+}
+
+.combobox-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.combobox-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--color-primary-light);
+  color: #0d7ea5;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.combobox-tag-remove {
+  background: none;
+  border: none;
+  color: #0d7ea5;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.7;
+}
+.combobox-tag-remove:hover {
+  opacity: 1;
+}
+
 .combobox-no-results {
   padding: 10px 14px;
   font-size: 13px;

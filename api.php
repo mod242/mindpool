@@ -174,8 +174,9 @@ function validate_dozent(array $data): array {
     if (empty(trim($data['wohnort'] ?? ''))) {
         $errors[] = 'Wohnort ist erforderlich';
     }
-    if (empty(trim($data['einsatzgebiet'] ?? ''))) {
-        $errors[] = 'Einsatzgebiet ist erforderlich';
+    $einsatzgebiete = $data['einsatzgebiete'] ?? [];
+    if (empty($einsatzgebiete) || !is_array($einsatzgebiete) || count(array_filter($einsatzgebiete, 'trim')) === 0) {
+        $errors[] = 'Mindestens ein Einsatzgebiet ist erforderlich';
     }
 
     // Foto-Größe prüfen
@@ -213,7 +214,7 @@ function prepare_dozent(array $data, ?array $existing = null): array {
         'land'        => sanitize($data['land'] ?? ''),
         'wohnort_lat' => floatval($data['wohnort_lat'] ?? 0),
         'wohnort_lng' => floatval($data['wohnort_lng'] ?? 0),
-        'einsatzgebiet'       => sanitize($data['einsatzgebiet'] ?? ''),
+        'einsatzgebiete'      => [],
         'angebote'            => [],
         'aktuelle_taetigkeit' => sanitize($data['aktuelle_taetigkeit'] ?? ''),
         'wirkungsfelder'      => sanitize($data['wirkungsfelder'] ?? ''),
@@ -223,6 +224,16 @@ function prepare_dozent(array $data, ?array $existing = null): array {
         'erstellt'    => $existing['erstellt'] ?? gmdate('Y-m-d\TH:i:s\Z'),
         'aktualisiert' => gmdate('Y-m-d\TH:i:s\Z'),
     ];
+
+    // Einsatzgebiete sanitizen
+    if (!empty($data['einsatzgebiete']) && is_array($data['einsatzgebiete'])) {
+        foreach ($data['einsatzgebiete'] as $eg) {
+            $eg = sanitize($eg);
+            if ($eg !== '') {
+                $dozent['einsatzgebiete'][] = $eg;
+            }
+        }
+    }
 
     // Angebote sanitizen (nur erlaubte Werte)
     $erlaubte_angebote = ['Lehrkräfte-Fortbildungen', 'Schülerworkshops', 'Schulentwicklung'];
@@ -485,7 +496,8 @@ function handle_taxonomie_usage() {
             if (!($d['aktiv'] ?? false)) continue;
 
             if ($kategorie === 'einsatzgebiete') {
-                if (($d['einsatzgebiet'] ?? '') === $eintrag['name']) {
+                $gebiete = $d['einsatzgebiete'] ?? ($d['einsatzgebiet'] ?? '' ? [$d['einsatzgebiet']] : []);
+                if (in_array($eintrag['name'], $gebiete, true)) {
                     $count++;
                 }
             } else {
@@ -947,9 +959,14 @@ function handle_taxonomie_delete(array $input) {
 function update_dozenten_references(array &$dozenten, string $kategorie, string $alter_name, string $neuer_name) {
     foreach ($dozenten as &$d) {
         if ($kategorie === 'einsatzgebiete') {
-            if (($d['einsatzgebiet'] ?? '') === $alter_name) {
-                $d['einsatzgebiet'] = $neuer_name;
+            $gebiete = $d['einsatzgebiete'] ?? ($d['einsatzgebiet'] ?? '' ? [$d['einsatzgebiet']] : []);
+            foreach ($gebiete as &$g) {
+                if ($g === $alter_name) {
+                    $g = $neuer_name;
+                }
             }
+            unset($g);
+            $d['einsatzgebiete'] = array_values(array_unique($gebiete));
         } else {
             $feld = $kategorie === 'abschlussarten' ? 'art' : 'fach';
             if (!empty($d['akademische_abschluesse'])) {
@@ -974,7 +991,8 @@ function count_usage(array $dozenten, string $kategorie, string $name): int {
         if (!($d['aktiv'] ?? false)) continue;
 
         if ($kategorie === 'einsatzgebiete') {
-            if (($d['einsatzgebiet'] ?? '') === $name) {
+            $gebiete = $d['einsatzgebiete'] ?? ($d['einsatzgebiet'] ?? '' ? [$d['einsatzgebiet']] : []);
+            if (in_array($name, $gebiete, true)) {
                 $count++;
             }
         } else {

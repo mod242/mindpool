@@ -158,12 +158,13 @@ function val($dozent, $field, $default = '') {
                                value="<?= val($dozent, 'wohnort_lng', '0') ?>">
                     </div>
                     <div class="form-group">
-                        <label>Einsatzgebiet <span class="required">*</span></label>
+                        <label>Einsatzgebiete <span class="required">*</span></label>
                         <div data-combobox="einsatzgebiete"
-                             data-name="einsatzgebiet"
+                             data-name="einsatzgebiete"
                              data-placeholder="Einsatzgebiet wählen oder suchen..."
                              data-required="true"
-                             data-value="<?= val($dozent, 'einsatzgebiet') ?>"></div>
+                             data-multi="true"
+                             data-value="<?= htmlspecialchars(json_encode($dozent['einsatzgebiete'] ?? ($dozent['einsatzgebiet'] ?? '' ? [$dozent['einsatzgebiet']] : []), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"></div>
                     </div>
                     <?php if (!empty($dozent['wohnort_lat']) && $dozent['wohnort_lat'] != 0): ?>
                         <div class="form-group">
