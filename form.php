@@ -164,7 +164,7 @@ function val($dozent, $field, $default = '') {
                              data-placeholder="Einsatzgebiet wählen oder suchen..."
                              data-required="true"
                              data-multi="true"
-                             data-value="<?= htmlspecialchars(json_encode($dozent['einsatzgebiete'] ?? ($dozent['einsatzgebiet'] ?? '' ? [$dozent['einsatzgebiet']] : []), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"></div>
+                             data-value="<?= htmlspecialchars(json_encode($dozent ? ($dozent['einsatzgebiete'] ?? ($dozent['einsatzgebiet'] ?? '' ? [$dozent['einsatzgebiet']] : [])) : [], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"></div>
                     </div>
                     <?php if (!empty($dozent['wohnort_lat']) && $dozent['wohnort_lat'] != 0): ?>
                         <div class="form-group">
@@ -193,7 +193,7 @@ function val($dozent, $field, $default = '') {
                     <h2 class="form-section-title">Angebote & Wirkungsfelder</h2>
                 </div>
                 <div class="form-section">
-                    <?php $angebote = $dozent['angebote'] ?? []; ?>
+                    <?php $angebote = $dozent ? ($dozent['angebote'] ?? []) : []; ?>
                     <div class="form-group">
                         <label>Angebote</label>
                         <div class="checkbox-group">

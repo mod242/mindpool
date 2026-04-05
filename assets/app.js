@@ -169,7 +169,7 @@ class Combobox {
         this.input.addEventListener('focus', () => this.open());
         this.input.addEventListener('input', () => this.onInput());
         this.input.addEventListener('keydown', (e) => this.onKeydown(e));
-        document.addEventListener('click', (e) => {
+        document.addEventListener('mousedown', (e) => {
             if (!this.container.contains(e.target)) this.close();
         });
     }
@@ -347,7 +347,9 @@ class Combobox {
             if (isSelected) html += ' ✓';
             option.innerHTML = html;
 
-            option.addEventListener('click', () => {
+            option.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Verhindert Blur/Focus-Wechsel
+                e.stopPropagation();
                 if (this.multi) {
                     if (isSelected) {
                         this.removeValue(eintrag.name);
@@ -369,7 +371,11 @@ class Combobox {
             const suggest = document.createElement('div');
             suggest.className = 'combobox-suggest';
             suggest.innerHTML = `+ „${query}" neu vorschlagen`;
-            suggest.addEventListener('click', () => this.suggest(query));
+            suggest.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.suggest(query);
+            });
             this.dropdown.appendChild(suggest);
         }
     }
