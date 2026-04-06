@@ -94,7 +94,7 @@ try {
             http_response_code(400);
             echo json_encode(['error' => 'Unbekannte Aktion']);
     }
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Interner Fehler: ' . $e->getMessage()]);
 }
@@ -282,12 +282,19 @@ function handle_list() {
         return !empty($d['aktiv']);
     }));
 
-    // Foto-Daten optional kürzen für die Liste
+    // Daten normalisieren + Foto-Daten kürzen
     foreach ($aktive as &$d) {
         if (!empty($d['foto_base64']) && strlen($d['foto_base64']) > 100) {
             $d['hat_foto'] = true;
         } else {
             $d['hat_foto'] = false;
+        }
+        // Migration: einsatzgebiet (String) → einsatzgebiete (Array)
+        if (!isset($d['einsatzgebiete']) && !empty($d['einsatzgebiet'])) {
+            $d['einsatzgebiete'] = [$d['einsatzgebiet']];
+        }
+        if (!isset($d['einsatzgebiete'])) {
+            $d['einsatzgebiete'] = [];
         }
     }
 
@@ -308,6 +315,13 @@ function handle_get() {
     $dozenten = read_json('dozenten.json');
     foreach ($dozenten as $d) {
         if ($d['id'] === $id) {
+            // Migration: einsatzgebiet → einsatzgebiete
+            if (!isset($d['einsatzgebiete']) && !empty($d['einsatzgebiet'])) {
+                $d['einsatzgebiete'] = [$d['einsatzgebiet']];
+            }
+            if (!isset($d['einsatzgebiete'])) {
+                $d['einsatzgebiete'] = [];
+            }
             echo json_encode($d, JSON_UNESCAPED_UNICODE);
             return;
         }

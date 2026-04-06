@@ -247,11 +247,12 @@ class Combobox {
     }
 
     _filterAndRender() {
-        const q = this.input.value.toLowerCase().trim();
+        const raw = this.input.value.trim();
+        const q = raw.toLowerCase();
         this.filtered = q
             ? this.eintraege.filter(e => e.name.toLowerCase().includes(q))
             : [...this.eintraege];
-        this._render(q);
+        this._render(raw);
     }
 
     _onKeydown(e) {
