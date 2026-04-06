@@ -93,17 +93,8 @@ async function apiPost(action, data = {}) {
     return result;
 }
 
-// === Combobox-Komponente ===
+// === Combobox-Komponente (Single + Multi) ===
 class Combobox {
-    /**
-     * @param {HTMLElement} container - Wrapper-Element
-     * @param {Object} options
-     * @param {string} options.kategorie - Taxonomie-Kategorie
-     * @param {string} options.name - Name des hidden inputs
-     * @param {string} options.placeholder - Platzhalter
-     * @param {boolean} options.required - Pflichtfeld
-     * @param {string} options.value - Initialer Wert
-     */
     constructor(container, options = {}) {
         this.container = container;
         this.kategorie = options.kategorie;
@@ -114,12 +105,12 @@ class Combobox {
         this.filtered = [];
         this.highlightIndex = -1;
         this.isOpen = false;
-        // Single: string, Multi: array
+        this._closingFromDropdown = false;
+
         if (this.multi) {
             let parsed = [];
             try { parsed = JSON.parse(options.value || '[]'); } catch (e) {}
-            this.selectedValues = Array.isArray(parsed) ? parsed : (options.value ? [options.value] : []);
-            this.selectedValue = '';
+            this.selectedValues = Array.isArray(parsed) ? parsed : [];
         } else {
             this.selectedValue = options.value || '';
         }
@@ -131,14 +122,13 @@ class Combobox {
     build() {
         this.container.classList.add('combobox-wrapper');
 
+        // Multi: Tags-Bereich
         if (this.multi) {
-            // Tags-Container für Multi-Select
-            this.tagsContainer = document.createElement('div');
-            this.tagsContainer.className = 'combobox-tags';
-            this.container.appendChild(this.tagsContainer);
-            this.renderTags();
+            this.tagsEl = document.createElement('div');
+            this.tagsEl.className = 'combobox-tags';
+            this.container.appendChild(this.tagsEl);
+            this._syncTags();
         } else {
-            // Hidden Input für den eigentlichen Wert (Single)
             this.hiddenInput = document.createElement('input');
             this.hiddenInput.type = 'hidden';
             this.hiddenInput.name = this.name;
@@ -146,7 +136,7 @@ class Combobox {
             this.container.appendChild(this.hiddenInput);
         }
 
-        // Sichtbares Input
+        // Text-Input
         this.input = document.createElement('input');
         this.input.type = 'text';
         this.input.className = 'combobox-input';
@@ -154,7 +144,6 @@ class Combobox {
         this.input.autocomplete = 'off';
         this.input.setAttribute('role', 'combobox');
         this.input.setAttribute('aria-expanded', 'false');
-        this.input.setAttribute('aria-autocomplete', 'list');
         if (this.required) this.input.setAttribute('aria-required', 'true');
         if (!this.multi) this.input.value = this.selectedValue;
         this.container.appendChild(this.input);
@@ -165,47 +154,60 @@ class Combobox {
         this.dropdown.setAttribute('role', 'listbox');
         this.container.appendChild(this.dropdown);
 
-        // Events
+        // --- Events ---
         this.input.addEventListener('focus', () => this.open());
-        this.input.addEventListener('input', () => this.onInput());
-        this.input.addEventListener('keydown', (e) => this.onKeydown(e));
-        document.addEventListener('mousedown', (e) => {
+        this.input.addEventListener('input', () => {
+            if (!this.multi) {
+                this.selectedValue = '';
+                this.hiddenInput.value = '';
+            }
+            this.highlightIndex = -1;
+            this._filterAndRender();
+            if (!this.isOpen) this.open();
+        });
+        this.input.addEventListener('keydown', (e) => this._onKeydown(e));
+
+        // Dropdown-Klicks: mousedown um Blur zu verhindern
+        this.dropdown.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // Verhindert dass Input focus verliert
+        });
+
+        // Außenklick schließt Dropdown
+        document.addEventListener('click', (e) => {
             if (!this.container.contains(e.target)) this.close();
         });
     }
 
-    renderTags() {
-        if (!this.tagsContainer) return;
-        this.tagsContainer.innerHTML = '';
+    // --- Multi: Tags synchronisieren ---
+    _syncTags() {
+        if (!this.tagsEl) return;
+        this.tagsEl.innerHTML = '';
+        // Alte hidden inputs entfernen
+        this.container.querySelectorAll('input.combobox-hidden-multi').forEach(h => h.remove());
 
-        // Hidden inputs für Formular-Submit
-        this.container.querySelectorAll('input[type="hidden"]').forEach(h => h.remove());
         this.selectedValues.forEach(val => {
-            // Tag
             const tag = document.createElement('span');
             tag.className = 'combobox-tag';
-            tag.innerHTML = `${val} <button type="button" class="combobox-tag-remove" aria-label="Entfernen">&times;</button>`;
-            tag.querySelector('button').addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.removeValue(val);
+            tag.textContent = val + ' ';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'combobox-tag-remove';
+            btn.textContent = '×';
+            btn.addEventListener('click', () => {
+                this.selectedValues = this.selectedValues.filter(v => v !== val);
+                this._syncTags();
+                this._filterAndRender();
             });
-            this.tagsContainer.appendChild(tag);
+            tag.appendChild(btn);
+            this.tagsEl.appendChild(tag);
 
-            // Hidden input
             const hidden = document.createElement('input');
             hidden.type = 'hidden';
+            hidden.className = 'combobox-hidden-multi';
             hidden.name = this.name + '[]';
             hidden.value = val;
             this.container.appendChild(hidden);
         });
-    }
-
-    removeValue(val) {
-        this.selectedValues = this.selectedValues.filter(v => v !== val);
-        this.renderTags();
-        this.container.dispatchEvent(new CustomEvent('combobox-select', {
-            detail: { values: this.selectedValues }
-        }));
     }
 
     async loadEntries() {
@@ -218,7 +220,7 @@ class Combobox {
     }
 
     open() {
-        this.filter(this.input.value);
+        this._filterAndRender();
         this.isOpen = true;
         this.dropdown.classList.add('open');
         this.input.setAttribute('aria-expanded', 'true');
@@ -231,42 +233,28 @@ class Combobox {
         this.highlightIndex = -1;
 
         if (this.multi) {
-            // Bei Multi: Input leeren nach Close
             this.input.value = '';
-        } else {
-            // Wenn der eingetippte Wert nicht dem gewählten Wert entspricht
-            if (this.input.value !== this.selectedValue) {
-                const match = this.eintraege.find(
-                    e => e.name.toLowerCase() === this.input.value.toLowerCase()
-                );
-                if (match) {
-                    this.select(match.name);
-                } else {
-                    this.input.value = this.selectedValue;
-                }
+        } else if (this.input.value !== this.selectedValue) {
+            const match = this.eintraege.find(
+                e => e.name.toLowerCase() === this.input.value.toLowerCase()
+            );
+            if (match) {
+                this._selectSingle(match.name);
+            } else {
+                this.input.value = this.selectedValue;
             }
         }
     }
 
-    filter(query) {
-        const q = query.toLowerCase().trim();
+    _filterAndRender() {
+        const q = this.input.value.toLowerCase().trim();
         this.filtered = q
             ? this.eintraege.filter(e => e.name.toLowerCase().includes(q))
             : [...this.eintraege];
-        this.render(q);
+        this._render(q);
     }
 
-    onInput() {
-        if (!this.multi) {
-            this.selectedValue = '';
-            this.hiddenInput.value = '';
-        }
-        this.highlightIndex = -1;
-        this.filter(this.input.value);
-        if (!this.isOpen) this.open();
-    }
-
-    onKeydown(e) {
+    _onKeydown(e) {
         if (!this.isOpen) {
             if (e.key === 'ArrowDown' || e.key === 'Enter') {
                 this.open();
@@ -276,23 +264,26 @@ class Combobox {
         }
 
         const items = this.dropdown.querySelectorAll('.combobox-option, .combobox-suggest');
-        const maxIndex = items.length - 1;
-
         switch (e.key) {
             case 'ArrowDown':
                 e.preventDefault();
-                this.highlightIndex = Math.min(this.highlightIndex + 1, maxIndex);
-                this.updateHighlight(items);
+                this.highlightIndex = Math.min(this.highlightIndex + 1, items.length - 1);
+                this._updateHighlight(items);
                 break;
             case 'ArrowUp':
                 e.preventDefault();
                 this.highlightIndex = Math.max(this.highlightIndex - 1, 0);
-                this.updateHighlight(items);
+                this._updateHighlight(items);
                 break;
             case 'Enter':
                 e.preventDefault();
                 if (this.highlightIndex >= 0 && items[this.highlightIndex]) {
-                    items[this.highlightIndex].click();
+                    const name = items[this.highlightIndex].dataset.value;
+                    if (name) {
+                        this._pick(name);
+                    } else if (items[this.highlightIndex].classList.contains('combobox-suggest')) {
+                        this._suggest(this.input.value.trim());
+                    }
                 }
                 break;
             case 'Escape':
@@ -301,27 +292,21 @@ class Combobox {
         }
     }
 
-    updateHighlight(items) {
+    _updateHighlight(items) {
         items.forEach((item, i) => {
             item.classList.toggle('highlighted', i === this.highlightIndex);
-            if (i === this.highlightIndex) {
-                item.scrollIntoView({ block: 'nearest' });
-            }
+            if (i === this.highlightIndex) item.scrollIntoView({ block: 'nearest' });
         });
     }
 
-    render(query = '') {
+    _render(query = '') {
         this.dropdown.innerHTML = '';
 
         if (this.filtered.length === 0 && !query) {
-            const noResults = document.createElement('div');
-            noResults.className = 'combobox-no-results';
-            noResults.textContent = 'Keine Einträge vorhanden';
-            this.dropdown.appendChild(noResults);
+            this.dropdown.innerHTML = '<div class="combobox-no-results">Keine Einträge vorhanden</div>';
             return;
         }
 
-        // Einträge anzeigen: Vorschläge oben, dann alphabetisch
         const sorted = [...this.filtered].sort((a, b) => {
             if (a.status === 'vorschlag' && b.status !== 'vorschlag') return -1;
             if (a.status !== 'vorschlag' && b.status === 'vorschlag') return 1;
@@ -329,102 +314,75 @@ class Combobox {
         });
 
         sorted.forEach(eintrag => {
-            const option = document.createElement('div');
-            option.className = 'combobox-option';
-            option.setAttribute('role', 'option');
-            if (eintrag.status === 'vorschlag') {
-                option.classList.add('vorschlag');
-            }
+            const isChosen = this.multi && this.selectedValues.includes(eintrag.name);
 
-            // Multi: bereits gewählte dimmen
-            const isSelected = this.multi && this.selectedValues.includes(eintrag.name);
-            if (isSelected) option.classList.add('selected');
+            const el = document.createElement('div');
+            el.className = 'combobox-option';
+            el.setAttribute('role', 'option');
+            el.dataset.value = eintrag.name;
+            if (eintrag.status === 'vorschlag') el.classList.add('vorschlag');
+            if (isChosen) el.classList.add('selected');
 
-            let html = eintrag.name;
-            if (eintrag.status === 'vorschlag') {
-                html += ' <span class="badge-neu">(neu)</span>';
-            }
-            if (isSelected) html += ' ✓';
-            option.innerHTML = html;
+            let label = eintrag.name;
+            if (eintrag.status === 'vorschlag') label += ' <span class="badge-neu">(neu)</span>';
+            if (isChosen) label += ' ✓';
+            el.innerHTML = label;
 
-            option.addEventListener('mousedown', (e) => {
-                e.preventDefault(); // Verhindert Blur/Focus-Wechsel
-                e.stopPropagation();
-                if (this.multi) {
-                    if (isSelected) {
-                        this.removeValue(eintrag.name);
-                    } else {
-                        this.addValue(eintrag.name);
-                    }
-                    this.input.value = '';
-                    this.filter('');
-                } else {
-                    this.select(eintrag.name);
-                    this.close();
-                }
-            });
-            this.dropdown.appendChild(option);
+            el.addEventListener('click', () => this._pick(eintrag.name));
+            this.dropdown.appendChild(el);
         });
 
-        // "Neu vorschlagen"-Button wenn kein exakter Treffer
+        // Vorschlag-Button
         if (query && !this.eintraege.find(e => e.name.toLowerCase() === query.toLowerCase())) {
-            const suggest = document.createElement('div');
-            suggest.className = 'combobox-suggest';
-            suggest.innerHTML = `+ „${query}" neu vorschlagen`;
-            suggest.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.suggest(query);
-            });
-            this.dropdown.appendChild(suggest);
+            const el = document.createElement('div');
+            el.className = 'combobox-suggest';
+            el.innerHTML = `+ „${query}" neu vorschlagen`;
+            el.addEventListener('click', () => this._suggest(query));
+            this.dropdown.appendChild(el);
         }
     }
 
-    select(name) {
+    _pick(name) {
         if (this.multi) {
-            this.addValue(name);
-            return;
+            if (this.selectedValues.includes(name)) {
+                this.selectedValues = this.selectedValues.filter(v => v !== name);
+            } else {
+                this.selectedValues.push(name);
+            }
+            this._syncTags();
+            this.input.value = '';
+            this.input.classList.remove('invalid');
+            this._filterAndRender();
+            // Dropdown bleibt offen für weitere Auswahl
+        } else {
+            this._selectSingle(name);
+            this.close();
         }
+    }
+
+    _selectSingle(name) {
         this.selectedValue = name;
         this.input.value = name;
         this.hiddenInput.value = name;
         this.input.classList.remove('invalid');
-        this.close();
-
-        this.container.dispatchEvent(new CustomEvent('combobox-select', {
-            detail: { value: name }
-        }));
+        this.container.dispatchEvent(new CustomEvent('combobox-select', { detail: { value: name } }));
     }
 
-    addValue(name) {
-        if (!this.selectedValues.includes(name)) {
-            this.selectedValues.push(name);
-            this.renderTags();
-            this.input.classList.remove('invalid');
-            this.container.dispatchEvent(new CustomEvent('combobox-select', {
-                detail: { values: this.selectedValues }
-            }));
-        }
-    }
-
-    async suggest(name) {
+    async _suggest(name) {
         try {
             const result = await apiPost('taxonomie_suggest', {
                 kategorie: this.kategorie,
                 name: name,
             });
-
             if (result.existing) {
-                // Existierender Eintrag gefunden
-                this.select(result.name);
+                this._pick(result.name);
                 Toast.show(`„${result.name}" existiert bereits und wurde ausgewählt.`, 'warning');
             } else {
-                // Neuer Vorschlag angelegt
                 await this.loadEntries();
-                this.select(result.name);
+                this._pick(result.name);
                 Toast.show(`„${result.name}" wurde als Vorschlag hinzugefügt.`, 'success');
             }
-            this.close();
+            if (!this.multi) this.close();
         } catch (err) {
             Toast.show('Fehler beim Vorschlagen: ' + err.message, 'error');
         }
@@ -437,7 +395,7 @@ class Combobox {
     setValue(val) {
         if (this.multi) {
             this.selectedValues = Array.isArray(val) ? val : [val];
-            this.renderTags();
+            this._syncTags();
         } else {
             this.selectedValue = val;
             this.input.value = val;
@@ -446,19 +404,11 @@ class Combobox {
     }
 
     validate() {
-        if (this.multi) {
-            if (this.required && this.selectedValues.length === 0) {
-                this.input.classList.add('invalid');
-                return false;
-            }
-        } else {
-            if (this.required && !this.selectedValue) {
-                this.input.classList.add('invalid');
-                return false;
-            }
-        }
-        this.input.classList.remove('invalid');
-        return true;
+        const invalid = this.multi
+            ? (this.required && this.selectedValues.length === 0)
+            : (this.required && !this.selectedValue);
+        this.input.classList.toggle('invalid', invalid);
+        return !invalid;
     }
 }
 
