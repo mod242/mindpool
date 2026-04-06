@@ -542,8 +542,8 @@ function handle_taxonomie_usage() {
 function normalize_name(string $name): string {
     $name = trim($name);
     // Nur normalisieren wenn komplett lowercase
-    if ($name === mb_strtolower($name, 'UTF-8') && strlen($name) > 0) {
-        $name = mb_strtoupper(mb_substr($name, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($name, 1, null, 'UTF-8');
+    if ($name === _mb_lower($name) && strlen($name) > 0) {
+        $name = _mb_ucfirst($name);
     }
     return $name;
 }
@@ -552,13 +552,32 @@ function normalize_name(string $name): string {
  * Prüft ob ein Name in einer Kategorie bereits existiert (case-insensitive)
  */
 function find_existing_entry(array $eintraege, string $name): ?array {
-    $lower = mb_strtolower($name, 'UTF-8');
+    $lower = _mb_lower($name);
     foreach ($eintraege as $e) {
-        if (mb_strtolower($e['name'], 'UTF-8') === $lower) {
+        if (_mb_lower($e['name']) === $lower) {
             return $e;
         }
     }
     return null;
+}
+
+/**
+ * UTF-8-sicheres strtolower (funktioniert auch ohne mbstring)
+ */
+function _mb_lower(string $s): string {
+    return function_exists('mb_strtolower')
+        ? mb_strtolower($s, 'UTF-8')
+        : strtolower($s);
+}
+
+/**
+ * Ersten Buchstaben groß (UTF-8-sicher)
+ */
+function _mb_ucfirst(string $s): string {
+    if (function_exists('mb_strtoupper')) {
+        return mb_strtoupper(mb_substr($s, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($s, 1, null, 'UTF-8');
+    }
+    return ucfirst($s);
 }
 
 /**
