@@ -15,13 +15,13 @@
     # Datendateien (JSON-Speicher) niemals öffentlich
     RewriteRule ^data(/|$)             - [F,L]
 
-    # config.php und auth.php nicht direkt aufrufbar
-    RewriteRule ^(config|auth)\.php$   - [F,L]
+    # config.php, config.local.php und auth.php nicht direkt aufrufbar
+    RewriteRule ^(config(?:\.local)?|auth)\.php$   - [F,L]
 </IfModule>
 
 # Fallback ohne mod_rewrite
 <IfModule !mod_rewrite.c>
-    <FilesMatch "^(config|auth)\.php$">
+    <FilesMatch "^(config(?:\.local)?|auth)\.php$">
         Require all denied
     </FilesMatch>
 </IfModule>

@@ -78,7 +78,7 @@ nginx -t && nginx -s reload
 
 mindpool bringt zwei `.htaccess`-Dateien mit:
 
-- `.htaccess` im Web-Root – blockiert `config.php` und `auth.php`, setzt die Security-Header und die CSP
+- `.htaccess` im Web-Root – blockiert `config.php`, `config.local.php` und `auth.php`, setzt die Security-Header und die CSP
 - `data/.htaccess` – blockiert das Datenverzeichnis als zweite Schutzschicht
 
 Voraussetzungen:
@@ -136,6 +136,9 @@ curl -I https://meinedomain.de/data/orte.json
 
 curl -I https://meinedomain.de/config.php
 # Muss 403 Forbidden zurückgeben!
+
+curl -I https://meinedomain.de/config.local.php
+# Muss 403 Forbidden zurückgeben!
 ```
 
 ### 6. Taxonomie-Stammdaten anpassen
@@ -169,7 +172,7 @@ cp data/taxonomien.json data/taxonomien_backup_$(date +%Y%m%d).json
 | Problem | Lösung |
 |---------|--------|
 | „500 Internal Server Error" | Schreibrechte auf `data/` prüfen: `chmod 770 data/` und `chown www-data:www-data data/` |
-| Login funktioniert nicht | Prüfen, ob der bcrypt-Hash korrekt in `config.php` eingetragen ist |
+| Login funktioniert nicht | Prüfen, ob der bcrypt-Hash korrekt in `config.local.php` eingetragen ist |
 | Session-Fehler | PHP-Session-Pfad prüfen: `php -i \| grep session.save_path` – Verzeichnis muss existieren und beschreibbar sein |
 | Nginx zeigt leere Seite | `include /pfad/zu/nginx.conf.example;` muss im `server`-Block stehen. `nginx -t` zeigt Fehler |
 | Apache: `.htaccess` wirkt nicht | Im VHost muss `AllowOverride All` gesetzt sein. `mod_rewrite` und `mod_headers` müssen aktiviert sein (`apachectl -M \| grep -E 'rewrite\|headers'`). |

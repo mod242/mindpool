@@ -8,8 +8,8 @@ location ~* /data/ {
     return 403;
 }
 
-# config.php und auth.php direkt blockieren
-location ~* /(config|auth)\.php$ {
+# config.php, config.local.php und auth.php direkt blockieren
+location ~* /(config(?:\.local)?|auth)\.php$ {
     deny all;
     return 403;
 }
