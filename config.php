@@ -13,7 +13,7 @@ if (file_exists($localConfig)) {
     require_once $localConfig;
 }
 
-// Passwort-Hash (bcrypt). Kein Standardpasswort ausliefern.
+// Passwort-Hash (bcrypt).
 if (!defined('AUTH_HASH')) {
     define('AUTH_HASH', getenv('MINDPOOL_AUTH_HASH') ?: '');
 }
