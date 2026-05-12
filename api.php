@@ -58,6 +58,26 @@ try {
             handle_deactivate($input);
             break;
 
+        // === Orte ===
+        case 'ort_list':
+            handle_ort_list();
+            break;
+        case 'ort_get':
+            handle_ort_get();
+            break;
+        case 'ort_create':
+            require_post();
+            handle_ort_create($input);
+            break;
+        case 'ort_update':
+            require_post();
+            handle_ort_update($input);
+            break;
+        case 'ort_deactivate':
+            require_post();
+            handle_ort_deactivate($input);
+            break;
+
         // === Taxonomien ===
         case 'taxonomie_list':
             handle_taxonomie_list();
@@ -110,25 +130,10 @@ function require_post() {
 }
 
 /**
- * JSON-Datei mit File-Locking lesen
+ * JSON-Datendatei lesen.
  */
 function read_json(string $file): array {
-    $path = DATA_DIR . $file;
-    if (!file_exists($path)) {
-        return [];
-    }
-    $content = file_get_contents($path);
-    $data = json_decode($content, true);
-    return is_array($data) ? $data : [];
-}
-
-/**
- * JSON-Datei mit File-Locking schreiben
- */
-function write_json(string $file, $data): bool {
-    $path = DATA_DIR . $file;
-    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    return file_put_contents($path, $json, LOCK_EX) !== false;
+    return load_data_file($file);
 }
 
 /**
@@ -469,7 +474,7 @@ function handle_deactivate(array $input) {
  * Gültige Taxonomie-Kategorien
  */
 function valid_kategorie(string $k): bool {
-    return in_array($k, ['abschlussarten', 'faecher', 'einsatzgebiete']);
+    return in_array($k, ['abschlussarten', 'faecher', 'einsatzgebiete', 'ort_typen']);
 }
 
 /**
@@ -501,30 +506,16 @@ function handle_taxonomie_usage() {
 
     $tax = read_json('taxonomien.json');
     $dozenten = read_json('dozenten.json');
+    $orte = read_json('orte.json');
     $eintraege = $tax[$kategorie]['eintraege'] ?? [];
 
     $usage = [];
     foreach ($eintraege as $eintrag) {
-        $count = 0;
-        foreach ($dozenten as $d) {
-            if (!($d['aktiv'] ?? false)) continue;
-
-            if ($kategorie === 'einsatzgebiete') {
-                $gebiete = $d['einsatzgebiete'] ?? ($d['einsatzgebiet'] ?? '' ? [$d['einsatzgebiet']] : []);
-                if (in_array($eintrag['name'], $gebiete, true)) {
-                    $count++;
-                }
-            } else {
-                // abschlussarten oder faecher → in akademische_abschluesse suchen
-                $feld = $kategorie === 'abschlussarten' ? 'art' : 'fach';
-                foreach ($d['akademische_abschluesse'] ?? [] as $abschluss) {
-                    if (($abschluss[$feld] ?? '') === $eintrag['name']) {
-                        $count++;
-                        break; // Pro Person nur einmal zählen
-                    }
-                }
-            }
-        }
+        $count = count_usage_for(
+            $kategorie === 'ort_typen' ? $orte : $dozenten,
+            $kategorie,
+            $eintrag['name']
+        );
         $usage[] = [
             'id'    => $eintrag['id'],
             'name'  => $eintrag['name'],
@@ -588,6 +579,7 @@ function next_id(string $kategorie, array $eintraege): string {
         'abschlussarten' => 'ab',
         'faecher'        => 'fa',
         'einsatzgebiete' => 'eg',
+        'ort_typen'      => 'ot',
     ][$kategorie];
 
     $max = 0;
@@ -726,15 +718,15 @@ function handle_taxonomie_rename(array $input) {
 
     // Beide Dateien mit Locking öffnen (immer gleiche Reihenfolge)
     $tax_file = DATA_DIR . 'taxonomien.json';
-    $doz_file = DATA_DIR . 'dozenten.json';
+    $ref_file = DATA_DIR . target_data_file($kategorie);
 
     $fp_tax = fopen($tax_file, 'c+');
     flock($fp_tax, LOCK_EX);
-    $fp_doz = fopen($doz_file, 'c+');
-    flock($fp_doz, LOCK_EX);
+    $fp_ref = fopen($ref_file, 'c+');
+    flock($fp_ref, LOCK_EX);
 
     $tax = json_decode(stream_get_contents($fp_tax), true) ?: [];
-    $dozenten = json_decode(stream_get_contents($fp_doz), true) ?: [];
+    $rows = json_decode(stream_get_contents($fp_ref), true) ?: [];
 
     // Eintrag finden und alten Namen merken
     $alter_name = null;
@@ -746,8 +738,8 @@ function handle_taxonomie_rename(array $input) {
             // Duplikat-Prüfung (anderer Eintrag mit dem neuen Namen)
             $existing = find_existing_entry($eintraege, $neuer_name);
             if ($existing && $existing['id'] !== $id) {
-                flock($fp_doz, LOCK_UN);
-                fclose($fp_doz);
+                flock($fp_ref, LOCK_UN);
+                fclose($fp_ref);
                 flock($fp_tax, LOCK_UN);
                 fclose($fp_tax);
                 http_response_code(409);
@@ -762,8 +754,8 @@ function handle_taxonomie_rename(array $input) {
     unset($e);
 
     if ($alter_name === null) {
-        flock($fp_doz, LOCK_UN);
-        fclose($fp_doz);
+        flock($fp_ref, LOCK_UN);
+        fclose($fp_ref);
         flock($fp_tax, LOCK_UN);
         fclose($fp_tax);
         http_response_code(404);
@@ -771,20 +763,20 @@ function handle_taxonomie_rename(array $input) {
         return;
     }
 
-    // Referenzen in dozenten.json aktualisieren
-    update_dozenten_references($dozenten, $kategorie, $alter_name, $neuer_name);
+    // Referenzen im jeweiligen Datensatz aktualisieren
+    update_references($rows, $kategorie, $alter_name, $neuer_name);
 
     // Beide Dateien schreiben
     ftruncate($fp_tax, 0);
     rewind($fp_tax);
     fwrite($fp_tax, json_encode($tax, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    ftruncate($fp_doz, 0);
-    rewind($fp_doz);
-    fwrite($fp_doz, json_encode($dozenten, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    ftruncate($fp_ref, 0);
+    rewind($fp_ref);
+    fwrite($fp_ref, json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    flock($fp_doz, LOCK_UN);
-    fclose($fp_doz);
+    flock($fp_ref, LOCK_UN);
+    fclose($fp_ref);
     flock($fp_tax, LOCK_UN);
     fclose($fp_tax);
 
@@ -858,15 +850,15 @@ function handle_taxonomie_merge(array $input) {
 
     // Beide Dateien mit Locking öffnen
     $tax_file = DATA_DIR . 'taxonomien.json';
-    $doz_file = DATA_DIR . 'dozenten.json';
+    $ref_file = DATA_DIR . target_data_file($kategorie);
 
     $fp_tax = fopen($tax_file, 'c+');
     flock($fp_tax, LOCK_EX);
-    $fp_doz = fopen($doz_file, 'c+');
-    flock($fp_doz, LOCK_EX);
+    $fp_ref = fopen($ref_file, 'c+');
+    flock($fp_ref, LOCK_EX);
 
     $tax = json_decode(stream_get_contents($fp_tax), true) ?: [];
-    $dozenten = json_decode(stream_get_contents($fp_doz), true) ?: [];
+    $rows = json_decode(stream_get_contents($fp_ref), true) ?: [];
 
     $eintraege = &$tax[$kategorie]['eintraege'];
 
@@ -886,8 +878,8 @@ function handle_taxonomie_merge(array $input) {
     }
 
     if ($quell_name === null || $ziel_name === null) {
-        flock($fp_doz, LOCK_UN);
-        fclose($fp_doz);
+        flock($fp_ref, LOCK_UN);
+        fclose($fp_ref);
         flock($fp_tax, LOCK_UN);
         fclose($fp_tax);
         http_response_code(404);
@@ -895,8 +887,8 @@ function handle_taxonomie_merge(array $input) {
         return;
     }
 
-    // Referenzen in dozenten.json von Quelle auf Ziel umschreiben
-    update_dozenten_references($dozenten, $kategorie, $quell_name, $ziel_name);
+    // Referenzen im Zieldatensatz von Quelle auf Ziel umschreiben
+    update_references($rows, $kategorie, $quell_name, $ziel_name);
 
     // Quell-Eintrag aus Taxonomie löschen
     array_splice($eintraege, $quell_index, 1);
@@ -906,12 +898,12 @@ function handle_taxonomie_merge(array $input) {
     rewind($fp_tax);
     fwrite($fp_tax, json_encode($tax, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    ftruncate($fp_doz, 0);
-    rewind($fp_doz);
-    fwrite($fp_doz, json_encode($dozenten, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    ftruncate($fp_ref, 0);
+    rewind($fp_ref);
+    fwrite($fp_ref, json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    flock($fp_doz, LOCK_UN);
-    fclose($fp_doz);
+    flock($fp_ref, LOCK_UN);
+    fclose($fp_ref);
     flock($fp_tax, LOCK_UN);
     fclose($fp_tax);
 
@@ -931,15 +923,15 @@ function handle_taxonomie_delete(array $input) {
         return;
     }
 
-    // Beide Dateien lesen um Verwendung zu prüfen
+    // Taxonomie- und Referenzdatei laden (Verwendung prüfen)
     $tax_file = DATA_DIR . 'taxonomien.json';
-    $doz_file = DATA_DIR . 'dozenten.json';
+    $ref_basename = target_data_file($kategorie);
 
     $fp_tax = fopen($tax_file, 'c+');
     flock($fp_tax, LOCK_EX);
 
     $tax = json_decode(stream_get_contents($fp_tax), true) ?: [];
-    $dozenten = read_json('dozenten.json');
+    $rows = read_json($ref_basename);
 
     $eintraege = &$tax[$kategorie]['eintraege'];
 
@@ -963,13 +955,14 @@ function handle_taxonomie_delete(array $input) {
     }
 
     // Verwendung prüfen
-    $count = count_usage($dozenten, $kategorie, $target['name']);
+    $count = count_usage_for($rows, $kategorie, $target['name']);
     if ($count > 0) {
         flock($fp_tax, LOCK_UN);
         fclose($fp_tax);
         http_response_code(409);
+        $subjekt = $kategorie === 'ort_typen' ? 'Ort(e)' : 'Trainer*in(nen)';
         echo json_encode([
-            'error' => "Wird noch von $count Trainer*in(nen) verwendet. Erst zusammenführen.",
+            'error' => "Wird noch von $count $subjekt verwendet. Erst zusammenführen.",
         ]);
         return;
     }
@@ -987,23 +980,36 @@ function handle_taxonomie_delete(array $input) {
 }
 
 /**
- * Referenzen in dozenten.json aktualisieren (für Rename und Merge)
+ * Liefert die Daten-Datei, in der Referenzen auf eine Taxonomie-Kategorie liegen.
+ *  - ort_typen      → orte.json
+ *  - alle anderen   → dozenten.json
  */
-function update_dozenten_references(array &$dozenten, string $kategorie, string $alter_name, string $neuer_name) {
-    foreach ($dozenten as &$d) {
+function target_data_file(string $kategorie): string {
+    return $kategorie === 'ort_typen' ? 'orte.json' : 'dozenten.json';
+}
+
+/**
+ * Referenzen in dozenten.json bzw. orte.json aktualisieren (für Rename und Merge).
+ */
+function update_references(array &$rows, string $kategorie, string $alter_name, string $neuer_name) {
+    foreach ($rows as &$row) {
         if ($kategorie === 'einsatzgebiete') {
-            $gebiete = $d['einsatzgebiete'] ?? ($d['einsatzgebiet'] ?? '' ? [$d['einsatzgebiet']] : []);
+            $gebiete = $row['einsatzgebiete'] ?? ($row['einsatzgebiet'] ?? '' ? [$row['einsatzgebiet']] : []);
             foreach ($gebiete as &$g) {
                 if ($g === $alter_name) {
                     $g = $neuer_name;
                 }
             }
             unset($g);
-            $d['einsatzgebiete'] = array_values(array_unique($gebiete));
+            $row['einsatzgebiete'] = array_values(array_unique($gebiete));
+        } elseif ($kategorie === 'ort_typen') {
+            if (($row['typ'] ?? '') === $alter_name) {
+                $row['typ'] = $neuer_name;
+            }
         } else {
             $feld = $kategorie === 'abschlussarten' ? 'art' : 'fach';
-            if (!empty($d['akademische_abschluesse'])) {
-                foreach ($d['akademische_abschluesse'] as &$abschluss) {
+            if (!empty($row['akademische_abschluesse'])) {
+                foreach ($row['akademische_abschluesse'] as &$abschluss) {
                     if (($abschluss[$feld] ?? '') === $alter_name) {
                         $abschluss[$feld] = $neuer_name;
                     }
@@ -1012,25 +1018,33 @@ function update_dozenten_references(array &$dozenten, string $kategorie, string 
             }
         }
     }
-    unset($d);
+    unset($row);
 }
 
 /**
- * Verwendung eines Taxonomie-Eintrags zählen
+ * Verwendung eines Taxonomie-Eintrags zählen.
+ *
+ * Akzeptiert je nach Kategorie unterschiedliche Datensätze:
+ *  - einsatzgebiete / abschlussarten / faecher  → Trainer*innen-Datensätze
+ *  - ort_typen                                  → Orte-Datensätze
  */
-function count_usage(array $dozenten, string $kategorie, string $name): int {
+function count_usage_for(array $rows, string $kategorie, string $name): int {
     $count = 0;
-    foreach ($dozenten as $d) {
-        if (!($d['aktiv'] ?? false)) continue;
+    foreach ($rows as $row) {
+        if (!($row['aktiv'] ?? false)) continue;
 
         if ($kategorie === 'einsatzgebiete') {
-            $gebiete = $d['einsatzgebiete'] ?? ($d['einsatzgebiet'] ?? '' ? [$d['einsatzgebiet']] : []);
+            $gebiete = $row['einsatzgebiete'] ?? ($row['einsatzgebiet'] ?? '' ? [$row['einsatzgebiet']] : []);
             if (in_array($name, $gebiete, true)) {
+                $count++;
+            }
+        } elseif ($kategorie === 'ort_typen') {
+            if (($row['typ'] ?? '') === $name) {
                 $count++;
             }
         } else {
             $feld = $kategorie === 'abschlussarten' ? 'art' : 'fach';
-            foreach ($d['akademische_abschluesse'] ?? [] as $abschluss) {
+            foreach ($row['akademische_abschluesse'] ?? [] as $abschluss) {
                 if (($abschluss[$feld] ?? '') === $name) {
                     $count++;
                     break;
@@ -1039,4 +1053,245 @@ function count_usage(array $dozenten, string $kategorie, string $name): int {
         }
     }
     return $count;
+}
+
+// === Orte-Handler ===
+
+/**
+ * Liefert die Namen aller aktiven ort_typen.
+ */
+function active_ort_typen(): array {
+    $tax = read_json('taxonomien.json');
+    $namen = [];
+    foreach ($tax['ort_typen']['eintraege'] ?? [] as $e) {
+        if (($e['status'] ?? '') === 'aktiv') {
+            $namen[] = $e['name'];
+        }
+    }
+    return $namen;
+}
+
+/**
+ * Orte-Datensatz validieren.
+ */
+function validate_ort(array $data): array {
+    $errors = [];
+
+    if (empty(trim($data['name'] ?? ''))) {
+        $errors[] = 'Name ist erforderlich';
+    }
+
+    $typ = trim($data['typ'] ?? '');
+    if ($typ === '') {
+        $errors[] = 'Typ ist erforderlich';
+    } else {
+        $erlaubt = active_ort_typen();
+        if (!in_array($typ, $erlaubt, true)) {
+            $errors[] = 'Typ ist kein gültiger Eintrag aus den Stammdaten';
+        }
+    }
+
+    if (empty(trim($data['ort'] ?? ''))) {
+        $errors[] = 'Ort ist erforderlich';
+    }
+
+    // Koordinaten optional, aber wenn gesetzt: plausibel
+    $lat = floatval($data['lat'] ?? 0);
+    $lng = floatval($data['lng'] ?? 0);
+    if (($lat !== 0.0 || $lng !== 0.0)) {
+        if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+            $errors[] = 'Koordinaten außerhalb des gültigen Bereichs';
+        }
+    }
+
+    return $errors;
+}
+
+/**
+ * Orte-Datensatz aufbereiten.
+ */
+function prepare_ort(array $data, ?array $existing = null): array {
+    return [
+        'id'           => $existing['id'] ?? generate_uuid(),
+        'name'         => sanitize($data['name'] ?? ''),
+        'typ'          => sanitize($data['typ'] ?? ''),
+        'strasse'      => sanitize($data['strasse'] ?? ''),
+        'plz'          => sanitize($data['plz'] ?? ''),
+        'ort'          => sanitize($data['ort'] ?? ''),
+        'land'         => sanitize($data['land'] ?? ''),
+        'lat'          => floatval($data['lat'] ?? 0),
+        'lng'          => floatval($data['lng'] ?? 0),
+        'webseite'     => sanitize($data['webseite'] ?? ''),
+        'notizen'      => sanitize($data['notizen'] ?? ''),
+        'aktiv'        => $existing['aktiv'] ?? true,
+        'erstellt'     => $existing['erstellt'] ?? gmdate('Y-m-d\TH:i:s\Z'),
+        'aktualisiert' => gmdate('Y-m-d\TH:i:s\Z'),
+    ];
+}
+
+/**
+ * Alle aktiven Orte auflisten.
+ */
+function handle_ort_list() {
+    $orte = read_json('orte.json');
+    $aktive = array_values(array_filter($orte, function($o) {
+        return !empty($o['aktiv']);
+    }));
+    echo json_encode($aktive, JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * Einzelnen Ort laden.
+ */
+function handle_ort_get() {
+    $id = $_GET['id'] ?? '';
+    if (empty($id)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'ID erforderlich']);
+        return;
+    }
+
+    $orte = read_json('orte.json');
+    foreach ($orte as $o) {
+        if ($o['id'] === $id) {
+            echo json_encode($o, JSON_UNESCAPED_UNICODE);
+            return;
+        }
+    }
+
+    http_response_code(404);
+    echo json_encode(['error' => 'Ort nicht gefunden']);
+}
+
+/**
+ * Neuen Ort anlegen.
+ */
+function handle_ort_create(array $input) {
+    $errors = validate_ort($input);
+    if (!empty($errors)) {
+        http_response_code(422);
+        echo json_encode(['errors' => $errors]);
+        return;
+    }
+
+    $ort = prepare_ort($input);
+
+    $file = DATA_DIR . 'orte.json';
+    $fp = fopen($file, 'c+');
+    if (!$fp) {
+        throw new Exception('Datei konnte nicht geöffnet werden');
+    }
+
+    flock($fp, LOCK_EX);
+    $content = stream_get_contents($fp);
+    $orte = json_decode($content, true) ?: [];
+    $orte[] = $ort;
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($orte, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    echo json_encode(['success' => true, 'id' => $ort['id']], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * Ort aktualisieren.
+ */
+function handle_ort_update(array $input) {
+    $id = $input['id'] ?? '';
+    if (empty($id)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'ID erforderlich']);
+        return;
+    }
+
+    $errors = validate_ort($input);
+    if (!empty($errors)) {
+        http_response_code(422);
+        echo json_encode(['errors' => $errors]);
+        return;
+    }
+
+    $file = DATA_DIR . 'orte.json';
+    $fp = fopen($file, 'c+');
+    if (!$fp) {
+        throw new Exception('Datei konnte nicht geöffnet werden');
+    }
+
+    flock($fp, LOCK_EX);
+    $content = stream_get_contents($fp);
+    $orte = json_decode($content, true) ?: [];
+
+    $found = false;
+    foreach ($orte as &$o) {
+        if ($o['id'] === $id) {
+            $o = prepare_ort($input, $o);
+            $found = true;
+            break;
+        }
+    }
+    unset($o);
+
+    if (!$found) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        http_response_code(404);
+        echo json_encode(['error' => 'Ort nicht gefunden']);
+        return;
+    }
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($orte, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * Ort deaktivieren (Soft-Delete).
+ */
+function handle_ort_deactivate(array $input) {
+    $id = $input['id'] ?? '';
+    if (empty($id)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'ID erforderlich']);
+        return;
+    }
+
+    $file = DATA_DIR . 'orte.json';
+    $fp = fopen($file, 'c+');
+    flock($fp, LOCK_EX);
+    $content = stream_get_contents($fp);
+    $orte = json_decode($content, true) ?: [];
+
+    $found = false;
+    foreach ($orte as &$o) {
+        if ($o['id'] === $id) {
+            $o['aktiv'] = false;
+            $o['aktualisiert'] = gmdate('Y-m-d\TH:i:s\Z');
+            $found = true;
+            break;
+        }
+    }
+    unset($o);
+
+    if (!$found) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        http_response_code(404);
+        echo json_encode(['error' => 'Ort nicht gefunden']);
+        return;
+    }
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($orte, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    echo json_encode(['success' => true]);
 }

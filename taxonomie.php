@@ -39,6 +39,7 @@ $csrf = get_csrf_token();
                 <button class="tab active" data-kategorie="abschlussarten">Abschlussarten</button>
                 <button class="tab" data-kategorie="faecher">Fächer</button>
                 <button class="tab" data-kategorie="einsatzgebiete">Einsatzgebiete</button>
+                <button class="tab" data-kategorie="ort_typen">Ort-Typen</button>
             </div>
 
             <!-- Suche -->

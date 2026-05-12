@@ -39,5 +39,13 @@
       { "id": "eg-008", "name": "Bundesweit", "status": "aktiv" },
       { "id": "eg-009", "name": "Online / Remote", "status": "aktiv" }
     ]
+  },
+  "ort_typen": {
+    "eintraege": [
+      { "id": "ot-001", "name": "Schule", "status": "aktiv" },
+      { "id": "ot-002", "name": "Universität", "status": "aktiv" },
+      { "id": "ot-003", "name": "Lehrerinstitut", "status": "aktiv" },
+      { "id": "ot-004", "name": "Sonstige Institution", "status": "aktiv" }
+    ]
   }
 }

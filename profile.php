@@ -21,7 +21,7 @@ if (!$pdfAll) {
         exit;
     }
 
-    $dozenten = json_decode(file_get_contents(DATA_DIR . 'dozenten.json'), true) ?: [];
+    $dozenten = load_data_file('dozenten.json');
     foreach ($dozenten as $d) {
         if ($d['id'] === $id) {
             $dozent = $d;

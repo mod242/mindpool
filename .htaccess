@@ -1,0 +1,46 @@
+# mindpool – Apache-Konfiguration
+#
+# Voraussetzungen im VHost / im umgebenden <Directory>-Block:
+#   AllowOverride All
+#   Module: mod_rewrite, mod_headers, mod_authz_core
+#
+# Eine zusätzliche zweite Schutzschicht liegt in data/.htaccess.
+
+# ---------------------------------------------------------------------------
+# 1) Sensible Dateien hart blockieren
+# ---------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Datendateien (JSON-Speicher) niemals öffentlich
+    RewriteRule ^data(/|$)             - [F,L]
+
+    # config.php und auth.php nicht direkt aufrufbar
+    RewriteRule ^(config|auth)\.php$   - [F,L]
+</IfModule>
+
+# Fallback ohne mod_rewrite
+<IfModule !mod_rewrite.c>
+    <FilesMatch "^(config|auth)\.php$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# 2) Security-Header (identisch zur Nginx-Variante)
+# ---------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # CSP: kein Google. Nur cdnjs + unpkg + OSM-Tiles + Nominatim.
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'; style-src 'self' https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://nominatim.openstreetmap.org; font-src 'self';"
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# 3) Verzeichnis-Listing aus, index.php zuerst
+# ---------------------------------------------------------------------------
+DirectoryIndex index.php
+Options -Indexes

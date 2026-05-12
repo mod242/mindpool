@@ -115,15 +115,16 @@ function validate_csrf(string $token): bool {
 }
 
 /**
- * CSRF-Token aus Request prüfen – beendet bei Fehler
+ * JSON-Datendatei laden.
  */
-function require_csrf() {
-    $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    if (!validate_csrf($token)) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Ungültiges CSRF-Token']);
-        exit;
+function load_data_file(string $filename): array {
+    $file = DATA_DIR . $filename;
+    if (!file_exists($file)) {
+        return [];
     }
+
+    $data = json_decode(file_get_contents($file), true);
+    return is_array($data) ? $data : [];
 }
 
 /**
@@ -190,12 +191,7 @@ function reset_login_attempts(string $ip) {
  * Login-Versuche aus Datei laden
  */
 function load_login_attempts(): array {
-    $file = DATA_DIR . 'login_attempts.json';
-    if (!file_exists($file)) {
-        return [];
-    }
-    $data = json_decode(file_get_contents($file), true);
-    return is_array($data) ? $data : [];
+    return load_data_file('login_attempts.json');
 }
 
 /**

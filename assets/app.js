@@ -20,9 +20,17 @@ const Icons = {
     remove:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
 };
 
-// === Karten-Marker-Icon ===
+// === Karten-Marker-Icons ===
 const MapMarkerIcon = typeof L !== 'undefined' ? L.icon({
     iconUrl: 'assets/icon.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -30],
+    tooltipAnchor: [0, -30],
+}) : null;
+
+const OrtMarkerIcon = typeof L !== 'undefined' ? L.icon({
+    iconUrl: 'assets/icon-ort.png',
     iconSize: [32, 32],
     iconAnchor: [16, 32],
     popupAnchor: [0, -30],
@@ -416,8 +424,10 @@ class Combobox {
 // === Dashboard: Tabelle und Karte ===
 const Dashboard = {
     dozenten: [],
+    orte: [],
     map: null,
-    markers: [],
+    trainerLayer: null,
+    ortLayer: null,
     sortField: 'nachname',
     sortDir: 'asc',
 
@@ -430,7 +440,12 @@ const Dashboard = {
 
     async loadData() {
         try {
-            this.dozenten = await apiGet('list');
+            const [dozenten, orte] = await Promise.all([
+                apiGet('list'),
+                apiGet('ort_list').catch(() => []),
+            ]);
+            this.dozenten = dozenten || [];
+            this.orte = orte || [];
         } catch (err) {
             Toast.show('Fehler beim Laden: ' + err.message, 'error');
         }
@@ -446,16 +461,24 @@ const Dashboard = {
             maxZoom: 18,
         }).addTo(this.map);
 
+        // Eigene Layer-Groups für Trainer*innen und Orte
+        this.trainerLayer = L.layerGroup().addTo(this.map);
+        this.ortLayer = L.layerGroup().addTo(this.map);
+
+        // Layer-Control oben rechts mit Toggle-Checkboxen
+        L.control.layers(null, {
+            'Trainer*innen': this.trainerLayer,
+            'Orte': this.ortLayer,
+        }, { collapsed: false, position: 'topright' }).addTo(this.map);
+
         this.updateMarkers();
     },
 
     updateMarkers() {
         if (!this.map) return;
 
-        // Bestehende Marker entfernen
-        this.markers.forEach(m => m.remove());
-        this.markers = [];
-
+        // Trainer*innen-Layer neu aufbauen
+        this.trainerLayer.clearLayers();
         this.dozenten.forEach(d => {
             if (!d.wohnort_lat || !d.wohnort_lng) return;
 
@@ -469,8 +492,7 @@ const Dashboard = {
             `;
 
             const marker = L.marker([d.wohnort_lat, d.wohnort_lng], { icon: MapMarkerIcon })
-                .bindTooltip(popup, { direction: 'top' })
-                .addTo(this.map);
+                .bindTooltip(popup, { direction: 'top' });
 
             marker.on('click', () => {
                 // Zur Person in der Tabelle scrollen
@@ -482,7 +504,25 @@ const Dashboard = {
                 }
             });
 
-            this.markers.push(marker);
+            marker.addTo(this.trainerLayer);
+        });
+
+        // Orte-Layer neu aufbauen
+        this.ortLayer.clearLayers();
+        this.orte.forEach(o => {
+            if (!o.lat || !o.lng) return;
+
+            const adresse = [o.strasse, [o.plz, o.ort].filter(Boolean).join(' ')]
+                .filter(Boolean).join(', ');
+            const popup = `
+                <strong>${o.name}</strong><br>
+                <em>${o.typ || ''}</em>
+                ${adresse ? '<br>' + adresse : ''}
+            `;
+
+            L.marker([o.lat, o.lng], { icon: OrtMarkerIcon })
+                .bindTooltip(popup, { direction: 'top' })
+                .addTo(this.ortLayer);
         });
     },
 
@@ -1167,9 +1207,10 @@ const TaxAdmin = {
                 : '<span class="badge badge-warning">Vorschlag</span>';
 
             const canDelete = e.count === 0;
+            const subjekt = kategorie === 'ort_typen' ? 'Ort(en)' : 'Trainer*in(nen)';
             const deleteTitle = canDelete
                 ? 'Löschen'
-                : `Wird noch von ${e.count} Trainer*in(nen) verwendet – erst zusammenführen`;
+                : `Wird noch von ${e.count} ${subjekt} verwendet – erst zusammenführen`;
 
             html += `<tr data-id="${e.id}">
                 <td data-label="Name">
@@ -1730,6 +1771,238 @@ const PDFExport = {
     }
 };
 
+// === Orte: Übersicht (orte.php) ===
+const OrtList = {
+    orte: [],
+    sortField: 'name',
+    sortDir: 'asc',
+
+    async init() {
+        await this.load();
+        this.render();
+        this.bindEvents();
+    },
+
+    async load() {
+        try {
+            this.orte = await apiGet('ort_list');
+        } catch (err) {
+            Toast.show('Fehler beim Laden: ' + err.message, 'error');
+        }
+    },
+
+    bindEvents() {
+        document.getElementById('orte-search')?.addEventListener('input', () => this.render());
+        document.getElementById('filter-ort-typ')?.addEventListener('change', () => this.render());
+
+        document.querySelectorAll('[data-sort]').forEach(th => {
+            th.addEventListener('click', () => {
+                const field = th.dataset.sort;
+                if (this.sortField === field) {
+                    this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortField = field;
+                    this.sortDir = 'asc';
+                }
+                this.render();
+            });
+        });
+    },
+
+    async deactivate(id, name) {
+        if (!confirm(`„${name}" wirklich deaktivieren?`)) return;
+        try {
+            await apiPost('ort_deactivate', { id });
+            Toast.show('Ort deaktiviert.', 'success');
+            await this.load();
+            this.render();
+        } catch (err) {
+            Toast.show('Fehler: ' + err.message, 'error');
+        }
+    },
+
+    render() {
+        const tbody = document.getElementById('orte-tbody');
+        if (!tbody) return;
+
+        const search = (document.getElementById('orte-search')?.value || '').toLowerCase();
+        const typFilter = document.getElementById('filter-ort-typ')?.value || '';
+
+        let data = this.orte.filter(o => {
+            if (typFilter && o.typ !== typFilter) return false;
+            if (search) {
+                const hay = `${o.name} ${o.typ} ${o.ort} ${o.strasse} ${o.plz}`.toLowerCase();
+                if (!hay.includes(search)) return false;
+            }
+            return true;
+        });
+
+        data.sort((a, b) => {
+            const av = (a[this.sortField] || '').toString().toLowerCase();
+            const bv = (b[this.sortField] || '').toString().toLowerCase();
+            const cmp = av.localeCompare(bv, 'de');
+            return this.sortDir === 'asc' ? cmp : -cmp;
+        });
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="no-data">Keine Orte gefunden.</td></tr>';
+            return;
+        }
+
+        const escape = (s) => (s ?? '').toString()
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        tbody.innerHTML = data.map(o => {
+            const adresse = [o.strasse, [o.plz, o.ort].filter(Boolean).join(' ')]
+                .filter(Boolean).map(escape).join(', ');
+            return `<tr data-id="${o.id}">
+                <td data-label="Name"><strong>${escape(o.name)}</strong></td>
+                <td data-label="Typ"><span class="badge badge-sm">${escape(o.typ)}</span></td>
+                <td data-label="Ort">${escape(o.ort)}</td>
+                <td data-label="Adresse">${adresse || '–'}</td>
+                <td data-label="Aktionen" class="cell-actions">
+                    <a class="btn-icon" title="Bearbeiten" href="ort-form.php?id=${o.id}">${Icons.edit}</a>
+                    <button class="btn-icon" title="Deaktivieren"
+                            onclick="OrtList.deactivate('${o.id}', '${escape(o.name).replace(/'/g, "\\'")}')">${Icons.trash}</button>
+                </td>
+            </tr>`;
+        }).join('');
+    },
+};
+
+// === Orte: Anlege-/Bearbeitungsformular (ort-form.php) ===
+const OrtForm = {
+    editId: '',
+    previewMap: null,
+    previewMarker: null,
+
+    init() {
+        const form = document.getElementById('ort-form');
+        if (!form) return;
+        this.editId = form.dataset.editId || '';
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.save();
+        });
+
+        this.initGeocode();
+
+        // Existierende Koordinaten direkt visualisieren
+        const lat = parseFloat(document.getElementById('lat')?.value || 0);
+        const lng = parseFloat(document.getElementById('lng')?.value || 0);
+        if (lat !== 0 && lng !== 0) {
+            this.updatePreviewMap(lat, lng);
+        }
+    },
+
+    initGeocode() {
+        const fields = ['strasse', 'plz', 'ort-stadt'];
+        let timeout;
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            el?.addEventListener('blur', () => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => this.geocode(), 500);
+            });
+        });
+    },
+
+    async geocode() {
+        const strasse = document.getElementById('strasse')?.value || '';
+        const plz = document.getElementById('plz')?.value || '';
+        const stadt = document.getElementById('ort-stadt')?.value || '';
+        const land = document.getElementById('land')?.value || 'DE';
+        if (!stadt && !plz) return;
+
+        const query = [strasse, plz, stadt, land === 'AT' ? 'Austria' : land === 'CH' ? 'Switzerland' : 'Germany']
+            .filter(Boolean).join(' ');
+
+        try {
+            const resp = await fetch(
+                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
+                { headers: { 'Accept-Language': 'de' } }
+            );
+            const data = await resp.json();
+            if (data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lng = parseFloat(data[0].lon);
+                document.getElementById('lat').value = lat;
+                document.getElementById('lng').value = lng;
+                this.updatePreviewMap(lat, lng);
+            }
+        } catch (err) {
+            console.error('Geocoding-Fehler:', err);
+        }
+    },
+
+    updatePreviewMap(lat, lng) {
+        const mapEl = document.getElementById('ort-map-preview');
+        if (!mapEl || typeof L === 'undefined') return;
+
+        if (!this.previewMap) {
+            this.previewMap = L.map('ort-map-preview').setView([lat, lng], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap',
+                maxZoom: 18,
+            }).addTo(this.previewMap);
+            this.previewMarker = L.marker([lat, lng], { icon: OrtMarkerIcon }).addTo(this.previewMap);
+
+            this.previewMap.on('click', (e) => {
+                const { lat, lng } = e.latlng;
+                this.previewMarker.setLatLng([lat, lng]);
+                document.getElementById('lat').value = lat.toFixed(6);
+                document.getElementById('lng').value = lng.toFixed(6);
+            });
+        } else {
+            this.previewMap.setView([lat, lng], 13);
+            this.previewMarker.setLatLng([lat, lng]);
+        }
+    },
+
+    async save() {
+        const get = (id) => document.getElementById(id)?.value?.trim() || '';
+        const payload = {
+            name: get('name'),
+            typ: get('typ'),
+            strasse: get('strasse'),
+            plz: get('plz'),
+            ort: get('ort-stadt'),
+            land: get('land'),
+            lat: parseFloat(get('lat')) || 0,
+            lng: parseFloat(get('lng')) || 0,
+            webseite: get('webseite'),
+            notizen: get('notizen'),
+        };
+
+        try {
+            if (this.editId) {
+                payload.id = this.editId;
+                await apiPost('ort_update', payload);
+                Toast.show('Ort gespeichert.', 'success');
+            } else {
+                await apiPost('ort_create', payload);
+                Toast.show('Ort angelegt.', 'success');
+            }
+            setTimeout(() => { window.location.href = 'orte.php'; }, 500);
+        } catch (err) {
+            Toast.show('Fehler: ' + err.message, 'error');
+        }
+    },
+
+    async deactivate() {
+        if (!this.editId) return;
+        if (!confirm('Diesen Ort wirklich deaktivieren?')) return;
+        try {
+            await apiPost('ort_deactivate', { id: this.editId });
+            Toast.show('Ort deaktiviert.', 'success');
+            setTimeout(() => { window.location.href = 'orte.php'; }, 500);
+        } catch (err) {
+            Toast.show('Fehler: ' + err.message, 'error');
+        }
+    },
+};
+
 // === Initialisierung ===
 document.addEventListener('DOMContentLoaded', () => {
     Toast.init();
@@ -1743,6 +2016,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (document.getElementById('taxonomie-page')) {
         TaxAdmin.init();
+    }
+    if (document.getElementById('orte-page')) {
+        OrtList.init();
+    }
+    if (document.getElementById('ort-form')) {
+        OrtForm.init();
     }
 
     // Taxonomie-Suche
