@@ -39,9 +39,10 @@ Ein bcrypt-Hash generieren:
 php -r "echo password_hash('MeinSicheresPasswort', PASSWORD_BCRYPT) . PHP_EOL;"
 ```
 
-Den ausgegebenen Hash in `config.php` bei `AUTH_HASH` eintragen:
+Den ausgegebenen Hash in eine lokale, nicht versionierte `config.local.php` eintragen:
 
 ```php
+<?php
 define('AUTH_HASH', '$2y$10$HIER_DEN_HASH_EINTRAGEN...');
 ```
 
@@ -149,7 +150,7 @@ Die Pflege der Orte (Schulen, Universitäten, Lehrerinstitute, sonstige Institut
 php -r "echo password_hash('NeuesPasswort', PASSWORD_BCRYPT) . PHP_EOL;"
 ```
 
-Den neuen Hash in `config.php` eintragen und – falls Nginx oder PHP-FPM OPcache nutzt – den Cache leeren.
+Den neuen Hash in `config.local.php` eintragen und – falls Nginx oder PHP-FPM OPcache nutzt – den Cache leeren.
 
 ## Backup
 

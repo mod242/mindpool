@@ -62,6 +62,11 @@ function login(string $password): bool {
         return false;
     }
 
+    if (AUTH_HASH === '' || password_get_info(AUTH_HASH)['algo'] === 0) {
+        error_log('mindpool: AUTH_HASH ist nicht konfiguriert');
+        return false;
+    }
+
     if (password_verify($password, AUTH_HASH)) {
         init_session();
         // Session-Fixation-Schutz

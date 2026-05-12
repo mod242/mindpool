@@ -4,11 +4,19 @@
  *
  * Passwort ändern:
  *   php -r "echo password_hash('NeuesPasswort', PASSWORD_BCRYPT) . PHP_EOL;"
- * Den ausgegebenen Hash unten bei AUTH_HASH eintragen.
+ * Den ausgegebenen Hash in config.local.php oder MINDPOOL_AUTH_HASH setzen.
  */
 
-// Passwort-Hash (bcrypt) – Standard-Passwort: "mindscool2025"
-define('AUTH_HASH', '$2y$12$bFhEc3Udcrgt00lFV00djuK1q2wYAOp3ah25br79kQeNUjKg605pC');
+// Lokale, nicht versionierte Overrides laden (z.B. AUTH_HASH).
+$localConfig = __DIR__ . '/config.local.php';
+if (file_exists($localConfig)) {
+    require_once $localConfig;
+}
+
+// Passwort-Hash (bcrypt). Kein Standardpasswort ausliefern.
+if (!defined('AUTH_HASH')) {
+    define('AUTH_HASH', getenv('MINDPOOL_AUTH_HASH') ?: '');
+}
 
 // Session-Timeout in Sekunden (2 Stunden)
 define('SESSION_TIMEOUT', 7200);

@@ -1,1 +1,31 @@
 PLAN.md
+
+# Lokale Secrets / produktive Konfiguration
+config.local.php
+.env
+.env.*
+
+# Laufzeit- und Backup-Dateien
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+data/*_backup_*.json
+data/*.bak
+data/*.backup
+data/*.old
+data/*.tmp
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Tool-spezifische Metadaten
+assets/.comments/
