@@ -39,11 +39,13 @@ Ein bcrypt-Hash generieren:
 php -r "echo password_hash('MeinSicheresPasswort', PASSWORD_BCRYPT) . PHP_EOL;"
 ```
 
-Den ausgegebenen Hash in eine lokale, nicht versionierte `config.local.php` eintragen:
+Eine lokale, nicht versionierte `config.local.php` mit dem ausgegebenen Hash erstellen:
 
-```php
+```bash
+cat > config.local.php <<'PHP'
 <?php
 define('AUTH_HASH', '$2y$10$HIER_DEN_HASH_EINTRAGEN...');
+PHP
 ```
 
 ### 4. Webserver konfigurieren
